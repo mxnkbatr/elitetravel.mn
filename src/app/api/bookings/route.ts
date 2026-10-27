@@ -1,0 +1,95 @@
+import { getTour, isBookable } from "@/data/tours";
+import { quote } from "@/lib/pricing";
+import { supabaseAdmin } from "@/lib/server/supabase-admin";
+import { randomBytes } from "node:crypto";
+
+export const runtime = "nodejs";
+
+type Body = {
+  tourId?: unknown;
+  date?: unknown;
+  name?: unknown;
+  phone?: unknown;
+  note?: unknown;
+  adults?: unknown;
+  kidsOwnBed?: unknown;
+  kidsSharedBed?: unknown;
+  singleRooms?: unknown;
+  /** Honeypot — real visitors never see or fill it */
+  website?: unknown;
+};
+
+const count = (v: unknown, min: number) => (Number.isInteger(v) && (v as number) >= min && (v as number) <= 30 ? (v as number) : null);
+const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+/** Short, unambiguous reference the traveller can read out over the phone. */
+function bookingId() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return "ET-" + Array.from(randomBytes(8), (b) => alphabet[b % alphabet.length]).join("");
+}
+
+function fail(status: number, error: string) {
+  return Response.json({ error }, { status });
+}
+
+/**
+ * Saves a booking request. Price is recomputed here from the tour's published rules,
+ * so the stored total never depends on what the browser sent.
+ */
+export async function POST(request: Request) {
+  let body: Body;
+  try {
+    body = (await request.json()) as Body;
+  } catch {
+    return fail(400, "Хүсэлт буруу байна.");
+  }
+
+  if (text(body.website, 100)) return Response.json({ id: bookingId() }); // quietly drop bots
+
+  const tour = typeof body.tourId === "string" ? getTour(body.tourId) : undefined;
+  if (!tour || !isBookable(tour)) return fail(400, "Энэ аялал захиалгад нээлттэй биш байна.");
+
+  const name = text(body.name, 80);
+  const phone = text(body.phone, 20);
+  const note = text(body.note, 500) || null;
+  const date = text(body.date, 60) || null;
+  const adults = count(body.adults, 1);
+  const kidsOwnBed = count(body.kidsOwnBed ?? 0, 0);
+  const kidsSharedBed = count(body.kidsSharedBed ?? 0, 0);
+  const singleRooms = count(body.singleRooms ?? 0, 0);
+
+  if (name.length < 2) return fail(400, "Нэрээ оруулна уу.");
+  if (!/^[0-9+ ]{8,20}$/.test(phone)) return fail(400, "Утасны дугаараа шалгана уу.");
+  if (adults == null || kidsOwnBed == null || kidsSharedBed == null || singleRooms == null) return fail(400, "Хүний тоо буруу байна.");
+  const dateOptions = (tour.dates ?? "").split("·").map((d) => d.trim()).filter(Boolean);
+  if (date && dateOptions.length > 1 && !dateOptions.includes(date)) return fail(400, "Огноо буруу байна.");
+
+  const { total, deposit } = quote(tour, { adults, kidsOwnBed, kidsSharedBed, singleRooms });
+
+  const db = supabaseAdmin();
+  if (!db) return fail(503, "Захиалгын сан түр холбогдохгүй байна.");
+
+  const id = bookingId();
+  const { error } = await db.from("booking_requests").insert({
+    id,
+    tour_id: tour.id,
+    tour_title: tour.title,
+    travel_date: date,
+    name,
+    phone,
+    adults,
+    kids_own_bed: kidsOwnBed,
+    kids_shared_bed: kidsSharedBed,
+    single_rooms: Math.min(singleRooms, adults),
+    total,
+    deposit,
+    note,
+  });
+
+  if (error) {
+    console.error("booking insert failed", error.code, error.message);
+    return fail(502, "Хүсэлт хадгалахад алдаа гарлаа.");
+  }
+
+  return Response.json({ id, total, deposit }, { status: 201 });
+}

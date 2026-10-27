@@ -4,6 +4,7 @@ import { formatPrice, type Tour } from "@/data/tours";
 import { addBooking, type BookingRequest } from "@/lib/traveller-store";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
+import { quote } from "@/lib/pricing";
 import { useMemo, useState, type FormEvent } from "react";
 
 const PHONE = "+97690031771";
@@ -100,27 +101,45 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
   const [done, setDone] = useState<BookingRequest | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const price = tour.price ?? 0;
   const ownBedAllowed = p.childOwnBed !== false;
-  const lines = useMemo(() => {
-    const out: { label: string; amount: number }[] = [{ label: `${adults} том хүн × ${formatPrice(price)}`, amount: adults * price }];
-    if (kidsOwnBed) out.push({ label: `${kidsOwnBed} хүүхэд, тусдаа ор × ${formatPrice(price)}`, amount: kidsOwnBed * price });
-    if (kidsSharedBed && p.childSharedBed)
-      out.push({ label: `${kidsSharedBed} хүүхэд, хамт × ${formatPrice(p.childSharedBed)}`, amount: kidsSharedBed * p.childSharedBed });
-    if (singleRooms && p.singleSupplement)
-      out.push({ label: `Ганцаараа өрөө × ${singleRooms}`, amount: singleRooms * p.singleSupplement });
-    return out;
-  }, [adults, kidsOwnBed, kidsSharedBed, singleRooms, price, p.childSharedBed, p.singleSupplement]);
-
-  const total = lines.reduce((s, l) => s + l.amount, 0);
-  const deposit = p.depositPercent ? Math.round((total * p.depositPercent) / 100) : 0;
+  const { lines, total, deposit } = useMemo(
+    () => quote(tour, { adults, kidsOwnBed, kidsSharedBed, singleRooms }),
+    [tour, adults, kidsOwnBed, kidsSharedBed, singleRooms],
+  );
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState("");
 
   if (!tour.price) return null;
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    const b = addBooking({ tourId: tour.id, name, phone, date, adults, kidsOwnBed, kidsSharedBed, singleRooms, total, deposit, note: note || undefined });
-    setDone(b);
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    const request = { tourId: tour.id, name, phone, date, adults, kidsOwnBed, kidsSharedBed, singleRooms, note: note || undefined };
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...request, website }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; total?: number; deposit?: number; error?: string };
+      if (res.status === 400) {
+        setError(data.error ?? "Мэдээллээ шалгана уу.");
+        return;
+      }
+      if (res.ok && data.id) {
+        setDone(addBooking({ ...request, id: data.id, total: data.total ?? total, deposit: data.deposit ?? deposit, synced: true }));
+        return;
+      }
+      throw new Error(data.error ?? `HTTP ${res.status}`);
+    } catch {
+      // Offline or the database is unreachable: keep the request on the device so it can still be sent by hand
+      setDone(addBooking({ ...request, total, deposit, synced: false }));
+    } finally {
+      setSending(false);
+    }
   }
 
   async function copyMessage(b: BookingRequest) {
@@ -148,10 +167,12 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
             >
               ✓
             </motion.div>
-            <h3 className="mt-4 font-display text-2xl font-semibold">Хүсэлт бэлэн боллоо</h3>
+            <h3 className="mt-4 font-display text-2xl font-semibold">{done.synced ? "Хүсэлт хүлээн авлаа" : "Хүсэлт бэлэн боллоо"}</h3>
             <p className="mt-1 text-xs text-muted">Дугаар: {done.id}</p>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              Захиалга баталгаажихын тулд манай багт илгээнэ үү. Мессежийг хуулаад Instagram-аар явуулах эсвэл шууд залгаарай.
+              {done.synced
+                ? "Таны хүсэлт манай багт очлоо. Удахгүй тантай холбогдож захиалгыг баталгаажуулна. Яаралтай бол Instagram эсвэл утсаар холбогдоорой."
+                : "Сүлжээний алдаанаас болж хүсэлт манай системд очсонгүй. Мессежийг хуулаад Instagram-аар илгээх эсвэл шууд залгаарай."}
             </p>
             <div className="mt-5 grid gap-2">
               <a
@@ -315,6 +336,16 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
                 pattern="[0-9+ ]{8,}"
                 className="h-11 rounded-xl border border-[var(--line)] bg-bg px-3.5 text-sm outline-none transition focus:border-accent"
               />
+              {/* Honeypot: hidden from people, irresistible to form bots */}
+              <input
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                name="website"
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+              />
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -324,8 +355,19 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
               />
             </div>
 
-            <button type="submit" className="btn-shine mt-4 flex h-12 w-full items-center justify-center rounded-full bg-accent text-sm font-semibold text-white transition hover:bg-accent-soft">
-              Захиалгын хүсэлт үүсгэх
+            {error ? <p className="mt-3 rounded-xl bg-[#c2410c]/10 px-3 py-2 text-sm text-[#c2410c]">{error}</p> : null}
+            <button
+              type="submit"
+              disabled={sending}
+              className="btn-shine mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-white transition hover:bg-accent-soft disabled:opacity-70"
+            >
+              {sending ? (
+                <>
+                  <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Илгээж байна…
+                </>
+              ) : (
+                "Захиалгын хүсэлт илгээх"
+              )}
             </button>
             </motion.div>
             ) : null}

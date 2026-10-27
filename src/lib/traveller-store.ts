@@ -22,6 +22,8 @@ export type BookingRequest = {
   total: number;
   deposit: number;
   note?: string;
+  /** True once the Elite Travel team has it in the bookings database */
+  synced?: boolean;
 };
 
 type State = { saved: string[]; bookings: BookingRequest[] };
@@ -77,11 +79,12 @@ export function toggleSaved(tourId: string) {
   write({ ...s, saved });
 }
 
-export function addBooking(b: Omit<BookingRequest, "id" | "createdAt">) {
+/** Keeps a copy on the device; `id` is the server's reference when the request was saved online. */
+export function addBooking(b: Omit<BookingRequest, "id" | "createdAt"> & { id?: string; synced?: boolean }) {
   const s = read();
   const booking: BookingRequest = {
     ...b,
-    id: `ET-${Date.now().toString(36).toUpperCase()}`,
+    id: b.id ?? `ET-${Date.now().toString(36).toUpperCase()}`,
     createdAt: new Date().toISOString(),
   };
   write({ ...s, bookings: [booking, ...s.bookings] });
