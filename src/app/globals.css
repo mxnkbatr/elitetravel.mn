@@ -63,6 +63,10 @@
 html {
   scroll-behavior: smooth;
   height: 100%;
+  /* No overflow here: it would stop body's overflow reaching the viewport and break sticky.
+     Width is guarded by .app-main below instead. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Lenis owns smooth scrolling when active */
@@ -118,6 +122,17 @@ body {
   position: relative;
   z-index: 10;
   min-height: 100dvh;
+  /* The route push-in slides pages 48px sideways; clip it so the document never gets wider */
+  overflow-x: clip;
+}
+
+/* iOS zooms into any field under 16px and never zooms back out */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 .page-pad-top {
