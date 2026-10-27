@@ -7,6 +7,7 @@ const display = Cormorant_Garamond({
   variable: "--font-display",
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 const body = DM_Sans({
@@ -15,14 +16,28 @@ const body = DM_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const description =
+  "Хайнань, Хонг Конг, Бали болон концерт аяллууд — халуун орны тансаг амралтыг Elite Travel Mongolia-тай.";
+
 export const metadata: Metadata = {
   title: {
     default: "Elite Travel Mongolia | Explore. Dream. Discover.",
-    template: "%s Â· Elite Travel",
+    template: "%s · Elite Travel",
   },
-  description:
-    "Ð¥Ð¾Ð½Ð³ ÐÐ¾Ð½Ð³, Ð¥Ð°Ð¹Ð½Ð°Ð½Ñ, ÐÐ°Ð»Ð¸ Ð±Ð¾Ð»Ð¾Ð½ ÐºÐ¾Ð½ÑÐµÑÑ Ð°ÑÐ»Ð»ÑÑÐ´ â Elite Travel Mongolia.",
+  description,
   metadataBase: new URL("https://elitetravel.mn"),
+  openGraph: {
+    type: "website",
+    locale: "mn_MN",
+    siteName: "Elite Travel Mongolia",
+    title: "Elite Travel Mongolia — Халуун орны тансаг аялал",
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Elite Travel Mongolia — Халуун орны тансаг аялал",
+    description,
+  },
 };
 
 export const viewport: Viewport = {

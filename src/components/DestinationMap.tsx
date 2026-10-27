@@ -1,342 +1,258 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Map, Marker, NavigationControl } from "maplibre-gl";
+import { destinations, formatPrice, isBookable, tours } from "@/data/tours";
+import { withTransforms } from "@/lib/cloudinary";
+import { Map, Marker, NavigationControl, setWorkerUrl, type LngLatLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-type MapPin = {
-  key: string;
-  name: string;
-  en: string;
-  lng: number;
-  lat: number;
-  hub?: boolean;
+/** Free, keyless vector tiles — no origin allow-list to break in production. */
+const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
+
+const HUB = { key: "ub", name: "Улаанбаатар", lng: 106.917, lat: 47.918 };
+
+const coords: Record<string, [number, number]> = {
+  hainan: [109.508, 18.247],
+  hongkong: [114.1694, 22.3193],
+  bali: [115.1889, -8.4095],
+  egypt: [31.2357, 30.0444],
 };
 
-const pins: MapPin[] = [
-  { key: "ub", name: "Улаанбаатар", en: "Ulaanbaatar", lng: 106.917, lat: 47.918, hub: true },
-  { key: "hongkong", name: "Хонг Конг", en: "Hong Kong", lng: 114.1694, lat: 22.3193 },
-  { key: "hainan", name: "Хайнань", en: "Hainan", lng: 109.508, lat: 18.247 },
-  { key: "bali", name: "Бали", en: "Bali", lng: 115.1889, lat: -8.4095 },
-  { key: "egypt", name: "Египет", en: "Egypt", lng: 31.2357, lat: 30.0444 },
-];
+const pins = destinations.map((d) => {
+  const open = tours.filter((t) => isBookable(t) && t.destinationKey === d.key);
+  const from = open.reduce<number | null>((m, t) => (t.price && (!m || t.price < m) ? t.price : m), null);
+  return {
+    key: d.key,
+    name: d.name,
+    lng: coords[d.key][0],
+    lat: coords[d.key][1],
+    photo: withTransforms(d.image, "f_auto,q_auto,c_fill,g_auto,w_120,h_120"),
+    label: from ? `${formatPrice(from)}-аас` : "Удахгүй",
+  };
+});
+
+/** Quadratic bezier from UB, bowed sideways so routes read as flight arcs. */
+function arc(to: [number, number], steps = 64): [number, number][] {
+  const [x0, y0] = [HUB.lng, HUB.lat];
+  const [x2, y2] = to;
+  const dx = x2 - x0;
+  const dy = y2 - y0;
+  const len = Math.hypot(dx, dy);
+  const bow = Math.min(18, len * 0.28);
+  const [cx, cy] = [(x0 + x2) / 2 - (dy / len) * bow, (y0 + y2) / 2 + (dx / len) * bow];
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const t = i / steps;
+    const u = 1 - t;
+    return [u * u * x0 + 2 * u * t * cx + t * t * x2, u * u * y0 + 2 * u * t * cy + t * t * y2];
+  });
+}
+
+const routes = Object.fromEntries(pins.map((p) => [p.key, arc([p.lng, p.lat])]));
+
+const PLANE_SVG = `<svg width="26" height="26" viewBox="0 0 24 24" fill="#0a2a26"><path d="M21 15.5v-1.8l-8-5V3.6a1.6 1.6 0 0 0-3.2 0v5.1l-8 5v1.8l8-2.5v4.6l-2.2 1.7V21l3.8-1.1 3.8 1.1v-1.7l-2.2-1.7V13l8 2.5Z"/></svg>`;
 
 type DestinationMapProps = {
   active: string;
   onSelect: (key: string) => void;
+  /** Bottom space covered by overlays (e.g. the phone card), so flights frame above it */
+  bottomInset?: number;
+  fullscreen?: boolean;
 };
 
-function tourHref(key: string) {
-  return `/tours?dest=${key === "egypt" ? "soon" : key}`;
-}
-
-function styleUrl(key: string) {
-  const style = process.env.NEXT_PUBLIC_MAPTILER_STYLE || "streets-v2";
-  return `https://api.maptiler.com/maps/${style}/style.json?key=${key}`;
-}
-
-const blobs = [
-  { className: "genz-blob genz-blob-a", delay: 0 },
-  { className: "genz-blob genz-blob-b", delay: 0.4 },
-  { className: "genz-blob genz-blob-c", delay: 0.8 },
-];
-
-export function DestinationMap({ active, onSelect }: DestinationMapProps) {
-  const router = useRouter();
+export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen = true }: DestinationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
-  const markersRef = useRef<Marker[]>([]);
+  const pinEls = useRef<Record<string, HTMLElement>>({});
+  const planeRef = useRef<Marker | null>(null);
+  const rafRef = useRef(0);
+  const readyRef = useRef(false);
   const activeRef = useRef(active);
   const onSelectRef = useRef(onSelect);
-  const dashRef = useRef(0);
-  const rafRef = useRef(0);
-  const driftRef = useRef(0);
+  const insetRef = useRef(bottomInset);
 
-  useEffect(() => {
-    activeRef.current = active;
-  }, [active]);
   useEffect(() => {
     onSelectRef.current = onSelect;
-  }, [onSelect]);
+    insetRef.current = bottomInset;
+  });
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-    if (!containerRef.current || !apiKey || mapRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
 
+    // Turbopack does not emit maplibre v6's worker chunk; serve the copy from public/ (see postinstall)
+    setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
     const map = new Map({
       container: containerRef.current,
-      style: styleUrl(apiKey),
-      center: [95, 22],
-      zoom: 2.2,
-      pitch: 28,
-      bearing: -12,
-      attributionControl: {},
+      style: STYLE_URL,
+      center: [98, 32],
+      zoom: 0.8,
+      attributionControl: { compact: true },
+      renderWorldCopies: false,
     });
-
-    map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
     mapRef.current = map;
 
-    let usedFallback = false;
-    map.on("error", () => {
-      if (usedFallback || map.getSource("elite-routes")) return;
-      usedFallback = true;
-      try {
-        // MapTiler 403/origin block → keep motion live on MapLibre demo style
-        map.setStyle("https://demotiles.maplibre.org/style.json");
-      } catch {
-        /* ignore */
+    map.on("load", () => {
+      // Brand tint: sea in the site's pale teal, land in warm off-white
+      if (map.getLayer("water")) map.setPaintProperty("water", "fill-color", "#cfe8e3");
+      if (map.getLayer("background")) map.setPaintProperty("background", "background-color", "#f5f7f2");
+      // One clean label per place: Mongolian where OSM has it, else English (positron prints two scripts)
+      for (const layer of map.getStyle().layers ?? []) {
+        if (layer.type !== "symbol" || !map.getLayoutProperty(layer.id, "text-field")) continue;
+        if (/poi|road|highway|transport|housenumber|waterway/.test(layer.id)) {
+          map.setLayoutProperty(layer.id, "visibility", "none");
+          continue;
+        }
+        map.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:mn"], ["get", "name:en"], ["get", "name"]]);
       }
-    });
 
-    const bootLayers = () => {
-      if (map.getSource("elite-routes")) return;
-      cancelAnimationFrame(rafRef.current);
-      const hub = pins.find((p) => p.hub)!;
-      const routes: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: pins
-          .filter((p) => !p.hub)
-          .map((p) => ({
+      map.addSource("routes", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: pins.map((p) => ({
             type: "Feature",
             properties: { key: p.key },
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [hub.lng, hub.lat],
-                [(hub.lng + p.lng) / 2 - 4, (hub.lat + p.lat) / 2 + 12],
-                [p.lng, p.lat],
-              ],
-            },
+            geometry: { type: "LineString", coordinates: routes[p.key] },
           })),
-      };
-
-      map.addSource("elite-routes", { type: "geojson", data: routes });
-      map.addLayer({
-        id: "elite-routes-glow",
-        type: "line",
-        source: "elite-routes",
-        paint: {
-          "line-color": "#2ec4b6",
-          "line-width": 6,
-          "line-opacity": 0.22,
-          "line-blur": 1.2,
         },
       });
       map.addLayer({
-        id: "elite-routes-line",
+        id: "routes-base",
         type: "line",
-        source: "elite-routes",
-        paint: {
-          "line-color": "#0e8f84",
-          "line-width": 2.4,
-          "line-opacity": 0.75,
-          "line-dasharray": [0.8, 1.6],
-        },
+        source: "routes",
+        layout: { "line-cap": "round" },
+        // No line-dasharray: maplibre 6.16 throws in setConstantDashPositions with it
+        paint: { "line-color": "#0e8f84", "line-width": 1.4, "line-opacity": 0.3 },
+      });
+      map.addLayer({
+        id: "routes-active-glow",
+        type: "line",
+        source: "routes",
+        filter: ["==", ["get", "key"], activeRef.current],
+        layout: { "line-cap": "round" },
+        paint: { "line-color": "#e8b86d", "line-width": 9, "line-opacity": 0.25, "line-blur": 4 },
+      });
+      map.addLayer({
+        id: "routes-active",
+        type: "line",
+        source: "routes",
+        filter: ["==", ["get", "key"], activeRef.current],
+        layout: { "line-cap": "round" },
+        paint: { "line-color": "#0e8f84", "line-width": 2.6 },
       });
 
-      // flowing dashes + idle camera morph (no stacked easeTo)
-      let userTouch = false;
-      const onInteract = () => {
-        userTouch = true;
-      };
-      const onIdle = () => {
-        userTouch = false;
-      };
-      map.on("dragstart", onInteract);
-      map.on("zoomstart", onInteract);
-      map.on("pitchstart", onInteract);
-      map.on("rotatestart", onInteract);
-      map.on("touchstart", onInteract);
-      map.on("idle", onIdle);
+      // Hub
+      const hub = document.createElement("div");
+      hub.className = "map-hub";
+      hub.innerHTML = `<span class="map-hub-dot"></span><span class="map-hub-label">${HUB.name}</span>`;
+      new Marker({ element: hub, anchor: "center" }).setLngLat([HUB.lng, HUB.lat]).addTo(map);
 
-      const tick = (t: number) => {
-        const phase = (t / 90) % 40;
-        dashRef.current = phase;
-        if (map.getLayer("elite-routes-line")) {
-          try {
-            const a = 0.35 + ((phase % 8) / 8) * 1.4;
-            const b = 2.2 - a * 0.35;
-            map.setPaintProperty("elite-routes-line", "line-dasharray", [a, b]);
-            map.setPaintProperty(
-              "elite-routes-glow",
-              "line-opacity",
-              0.14 + Math.sin(t / 700) * 0.1,
-            );
-          } catch {
-            /* ignore */
-          }
-        }
-        if (!userTouch && !map.isMoving()) {
-          driftRef.current += 0.012;
-          const b = -12 + Math.sin(driftRef.current) * 10;
-          const p = 28 + Math.cos(driftRef.current * 0.65) * 8;
-          map.setBearing(b);
-          map.setPitch(p);
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = pins.map((p, i) => {
+      // Photo pins
+      pins.forEach((p, i) => {
+        const root = document.createElement("div");
         const el = document.createElement("button");
         el.type = "button";
-        el.className = "elite-map-pin";
-        el.style.setProperty("--pin-delay", `${i * 0.12}s`);
-        el.setAttribute("data-key", p.key);
+        el.className = "map-pin";
+        el.style.setProperty("--d", `${0.6 + i * 0.12}s`);
+        el.setAttribute("aria-label", p.name);
         el.innerHTML = `
-          <span class="elite-map-ring"></span>
-          <span class="elite-map-ring elite-map-ring-2"></span>
-          <span class="elite-map-dot"></span>
-          <span class="elite-map-label">${p.en}</span>
-        `;
-        if (p.hub) el.classList.add("is-hub");
-
+          <span class="map-pin-ring"></span>
+          <span class="map-pin-photo" style="background-image:url('${p.photo}')"></span>
+          <span class="map-pin-label"><b>${p.name}</b><i>${p.label}</i></span>`;
         el.addEventListener("click", (e) => {
           e.stopPropagation();
-          el.classList.add("is-pop");
-          window.setTimeout(() => el.classList.remove("is-pop"), 450);
-          if (p.hub) {
-            map.flyTo({
-              center: [p.lng, p.lat],
-              zoom: 4.4,
-              pitch: 45,
-              bearing: 20,
-              essential: true,
-            });
-            return;
-          }
           onSelectRef.current(p.key);
-          map.flyTo({
-            center: [p.lng, p.lat],
-            zoom: 5.4,
-            pitch: 48,
-            bearing: -18,
-            essential: true,
-            speed: 0.85,
-            curve: 1.4,
-          });
         });
-
-        el.addEventListener("dblclick", (e) => {
-          e.stopPropagation();
-          if (p.hub) return;
-          onSelectRef.current(p.key);
-          window.location.assign(tourHref(p.key));
-        });
-
-        return new Marker({ element: el, anchor: "bottom" })
-          .setLngLat([p.lng, p.lat])
-          .addTo(map);
+        root.appendChild(el);
+        pinEls.current[p.key] = el;
+        new Marker({ element: root, anchor: "bottom" }).setLngLat([p.lng, p.lat]).addTo(map);
       });
 
-      syncActivePins(activeRef.current);
+      // Plane that flies the active route
+      const plane = document.createElement("div");
+      plane.className = "map-plane";
+      plane.innerHTML = PLANE_SVG;
+      planeRef.current = new Marker({ element: plane, anchor: "center", rotationAlignment: "map" })
+        .setLngLat([HUB.lng, HUB.lat])
+        .addTo(map);
 
-      // entrance zoom morph
-      map.flyTo({
-        center: [95, 22],
-        zoom: 2.55,
-        pitch: 32,
-        bearing: -8,
-        duration: 2200,
-        essential: true,
-      });
-    };
+      let t0 = performance.now();
+      const fly = (now: number) => {
+        const path = routes[activeRef.current];
+        if (path && planeRef.current) {
+          const t = ((now - t0) / 4200) % 1;
+          const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          const i = Math.min(path.length - 2, Math.floor(eased * (path.length - 1)));
+          const a = map.project(path[i] as LngLatLike);
+          const b = map.project(path[i + 1] as LngLatLike);
+          const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
+          planeRef.current.setLngLat(path[i] as LngLatLike).setRotation(angle);
+          plane.style.opacity = String(t < 0.06 ? t / 0.06 : t > 0.94 ? (1 - t) / 0.06 : 1);
+        }
+        rafRef.current = requestAnimationFrame(fly);
+      };
+      rafRef.current = requestAnimationFrame(fly);
+      map.on("click", () => (t0 = performance.now()));
 
-    map.on("load", bootLayers);
-    map.on("style.load", bootLayers);
+      readyRef.current = true;
+      highlight(activeRef.current);
+
+      // Opening shot: from the globe down to a frame holding every route
+      map.fitBounds(
+        [
+          [28, -12],
+          [120, 50],
+        ],
+        { padding: { top: 90, bottom: 40 + insetRef.current, left: 40, right: 40 }, duration: 2600, essential: true },
+      );
+      window.setTimeout(() => focus(activeRef.current), 3000);
+    });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
       map.remove();
       mapRef.current = null;
+      readyRef.current = false;
+      pinEls.current = {};
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    syncActivePins(active);
+  function highlight(key: string) {
     const map = mapRef.current;
-    const pin = pins.find((p) => p.key === active);
-    if (map && pin && !pin.hub) {
-      map.flyTo({
-        center: [pin.lng, pin.lat],
-        zoom: 5.3,
-        pitch: 46,
-        bearing: -16,
-        essential: true,
-      });
-    }
-  }, [active]);
-
-  function syncActivePins(key: string) {
-    markersRef.current.forEach((marker) => {
-      const el = marker.getElement();
-      const k = el.getAttribute("data-key");
-      el.classList.toggle("is-active", k === key);
-    });
+    if (!map || !readyRef.current) return;
+    map.setFilter("routes-active", ["==", ["get", "key"], key]);
+    map.setFilter("routes-active-glow", ["==", ["get", "key"], key]);
+    Object.entries(pinEls.current).forEach(([k, el]) => el.classList.toggle("is-active", k === key));
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  const activePin = pins.find((p) => p.key === active);
+  function focus(key: string) {
+    const map = mapRef.current;
+    const path = routes[key];
+    if (!map || !path) return;
+    const lngs = path.map((c) => c[0]);
+    const lats = path.map((c) => c[1]);
+    map.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: { top: 110, bottom: 60 + insetRef.current, left: 50, right: 50 }, maxZoom: 5, duration: 1600, essential: true },
+    );
+  }
+
+  useEffect(() => {
+    activeRef.current = active;
+    highlight(active);
+    if (readyRef.current) focus(active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   return (
-    <motion.div
-      className="epic-card relative overflow-hidden"
-      initial={{ opacity: 0, y: 28, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-    >
-      {blobs.map((b) => (
-        <div key={b.className} className={b.className} style={{ animationDelay: `${b.delay}s` }} />
-      ))}
-
-      <div className="relative px-3 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 px-1">
-          <div>
-            <motion.p
-              className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-accent"
-              animate={{ opacity: [0.55, 1, 0.55] }}
-              transition={{ duration: 2.4, repeat: Infinity }}
-            >
-              Live map · Gen motion
-            </motion.p>
-            <p className="mt-1 font-display text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
-              Elite чиглэлүүд
-            </p>
-          </div>
-          <p className="text-xs text-muted">Цэг дээр дар — map өөрөө хөдөлнө</p>
-        </div>
-
-        <div className="genz-map-shell relative overflow-hidden rounded-[1.1rem] border border-[var(--line)]">
-          <div className="genz-scanline" aria-hidden />
-          {!apiKey ? (
-            <div className="grid aspect-[16/10] place-items-center bg-accent-mist px-6 text-center text-sm text-muted">
-              MapTiler key байхгүй байна. <code className="mx-1 text-accent">.env.local</code> дээр
-              NEXT_PUBLIC_MAPTILER_KEY нэмээд restart хийнэ үү.
-            </div>
-          ) : (
-            <div ref={containerRef} className="elite-map-canvas aspect-[16/10] w-full" />
-          )}
-
-          {apiKey && activePin && !activePin.hub ? (
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, y: 12, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              whileHover={{ scale: 1.05, rotate: -1 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => router.push(tourHref(activePin.key))}
-              className="absolute bottom-3 right-3 z-10 inline-flex h-11 items-center rounded-full bg-accent px-5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(0,168,144,0.45)] sm:bottom-4 sm:right-4"
-            >
-              {activePin.name} аялал руу →
-            </motion.button>
-          ) : null}
-        </div>
-      </div>
-    </motion.div>
+    <div className={fullscreen ? "relative h-full" : "relative aspect-[16/10] overflow-hidden rounded-[1.25rem]"}>
+      <div ref={containerRef} className="elite-map-canvas h-full w-full" />
+    </div>
   );
 }

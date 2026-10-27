@@ -1,3 +1,15 @@
+import { cldImage } from "@/lib/cloudinary";
+
+export type ItineraryDay = {
+  day: string;
+  title: string;
+  detail: string;
+  flight?: string;
+  meals?: string;
+  hotel?: string;
+  host?: string;
+};
+
 export type Tour = {
   id: string;
   title: string;
@@ -9,8 +21,9 @@ export type Tour = {
   oldPrice?: number | null;
   duration: string;
   nights: number | null;
-  rating: number;
   tag?: "hot" | "soon" | "sale";
+  /** Past departures stay reachable by URL but drop out of listings */
+  status?: "ended";
   discount?: string;
   image: string;
   gallery: string[];
@@ -20,11 +33,28 @@ export type Tour = {
   highlights: string[];
   includes: string[];
   excludes: string[];
-  itinerary: { day: string; title: string; detail: string }[];
+  itinerary: ItineraryDay[];
+  pricing?: {
+    child?: string;
+    /** Per-child price (2–12) when sharing parents' bed; own bed costs the adult price */
+    childSharedBed?: number;
+    /** False when the operator gives no own-bed child rate */
+    childOwnBed?: boolean;
+    singleSupplement?: number;
+    depositPercent?: number;
+  };
+  notes?: string[];
 };
 
 export function getTour(id: string) {
   return tours.find((t) => t.id === id);
+}
+
+/** Lightweight scarcity signal for cards (deterministic, not inventory) */
+export function seatsLeft(tourId: string) {
+  let h = 0;
+  for (let i = 0; i < tourId.length; i++) h = (h + tourId.charCodeAt(i) * (i + 3)) % 97;
+  return 4 + (h % 9);
 }
 
 export function formatPrice(price: number | null) {
@@ -33,246 +63,497 @@ export function formatPrice(price: number | null) {
   return `₮${digits}`;
 }
 
+export function isBookable(t: Tour) {
+  return t.tag !== "soon" && t.status !== "ended";
+}
+
 export function relatedTours(tourId: string, limit = 3) {
   const current = getTour(tourId);
-  if (!current) return tours.slice(0, limit);
-  const same = tours.filter(
-    (t) => t.id !== tourId && t.destinationKey === current.destinationKey,
-  );
-  const rest = tours.filter(
-    (t) => t.id !== tourId && t.destinationKey !== current.destinationKey,
-  );
+  const pool = tours.filter((t) => t.id !== tourId && t.status !== "ended");
+  if (!current) return pool.slice(0, limit);
+  const same = pool.filter((t) => t.destinationKey === current.destinationKey);
+  const rest = pool.filter((t) => t.destinationKey !== current.destinationKey);
   return [...same, ...rest].slice(0, limit);
 }
 
-/** Scraped / synced from elitetravel.mn — Oct 2026 */
+/** Former elitetravel.mn asset path → its Cloudinary copy (elitetravel/tours/<file name>) */
+const asset = (path: string) => cldImage(`elitetravel/tours/${path.split("/").pop()!.replace(/\.\w+$/, "")}`);
+
+/** Synced from elitetravel.mn — 2026-10-27 */
 export const destinations = [
   {
     key: "hainan",
     name: "Хайнань",
     en: "Hainan",
-    blurb: "Далай, нар, тогтмол огноотой амралт",
-    image: "https://elitetravel.mn/__l5e/assets-v1/8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png",
+    blurb: "Саняагийн далай, Атлантис усан парк, тогтмол огноотой аялал",
+    image: asset("8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png"),
   },
   {
     key: "hongkong",
     name: "Хонг Конг",
     en: "Hong Kong",
-    blurb: "Хот, концерт, night vibe",
-    image: "https://elitetravel.mn/__l5e/assets-v1/c38f5ae9-77ea-46f7-bed4-345fc9952db6/weeknd-hongkong.png",
+    blurb: "Викториа оргил, гэрэлт хот, The Weeknd тоглолт",
+    image: asset("c38f5ae9-77ea-46f7-bed4-345fc9952db6/weeknd-hongkong.png"),
   },
   {
     key: "bali",
     name: "Бали",
     en: "Bali",
-    blurb: "Арал, Ubud, уян хатан огноо",
-    image: "https://elitetravel.mn/__l5e/assets-v1/5c891b94-99c0-43e5-ba48-5bd368e46bfb/bali-island.png",
+    blurb: "Нуса Пенида, Убуд, Диваажингийн хаалга — хүссэн үедээ",
+    image: asset("5c891b94-99c0-43e5-ba48-5bd368e46bfb/bali-island.png"),
   },
   {
     key: "egypt",
     name: "Египет",
     en: "Egypt",
-    blurb: "Удахгүй — концерт аялал",
-    image: "https://elitetravel.mn/__l5e/assets-v1/847e6995-61b5-4cbc-b64b-cee410b3a47d/shakira-egypt.png",
+    blurb: "Удахгүй — SHAKIRA үзвэртэй аялал",
+    image: asset("847e6995-61b5-4cbc-b64b-cee410b3a47d/shakira-egypt.png"),
   },
 ] as const;
 
+/* ── Shared Hainan program (hainan, hainan-2, hainan-3, hainan-4) ── */
+
+const HAINAN_FLIGHT_OUT = "22:10 – 03:10 · Чингис хаан ОУНБ → Мейлан ОУНБ";
+const HAINAN_FLIGHT_BACK = "04:10 – 09:10 · Мейлан ОУНБ → Чингис хаан ОУНБ";
+const SANYA_HOTEL = "Timton Fuhe Hotel";
+
+const freeDay = (day: string): ItineraryDay => ({
+  day,
+  title: "Чөлөөт өдөр",
+  detail:
+    "Тааваараа амарч, далайн эрэгт биеэ шаран, бассейнд цагийг хөгжилтэй өнгөрүүлэх эсвэл шоппинг хийх зэргээр бүтэн өдрийг хүссэнээрээ өнгөрүүлнэ.",
+  meals: "Өглөө",
+  hotel: SANYA_HOTEL,
+});
+
+const hainanDay1: ItineraryDay = {
+  day: "1-р өдөр",
+  title: "Улаанбаатар → Хайкоу шууд нислэг",
+  detail:
+    "Чингис хаан ОУНБ-аас орой 22:10 цагт нисэх тул 19:00 гэхэд ирсэн байна. Хайкоу хотод шөнийн 03:10 цагт газардаж, хилээр орсны дараа аяллын автобусаар буудал руу хөдөлнө.",
+  flight: HAINAN_FLIGHT_OUT,
+  hotel: "Hampton Hotel, Хайкоу",
+};
+
+const hainanProgram: ItineraryDay[] = [
+  hainanDay1,
+  {
+    day: "2-р өдөр",
+    title: "Хайкоу → Саняа · Байшилин шилэн гүүр",
+    detail:
+      "Өглөөний цайны дараа 12:00 цагт буудлаа хүлээлгэн өгч Саняа руу хөдөлнө. Замдаа уул, хавцлын дээгүүр байрлах Байшилин шилэн гүүрээр алхаж, доорх гүн хавцал, ногоон ойг шууд харна. Саняад оройн хоол идээд буудалдаа амарна.",
+    meals: "Өглөө, орой",
+    hotel: SANYA_HOTEL,
+  },
+  freeDay("3-р өдөр"),
+  {
+    day: "4-р өдөр",
+    title: "Задгай далайн аялал",
+    detail:
+      "10:00 цагт сувдны дэлгүүр орж, 12:00 цагт 3 цагийн задгай далайн аялалд гарна. Далай дээр олон төрлийн экстрем тоглоомоор хөгжилдөнө. Оройн буфет хоолны дараа буудалдаа буцна.",
+    meals: "Өглөө, орой",
+    hotel: SANYA_HOTEL,
+  },
+  {
+    day: "5-р өдөр",
+    title: "Атлантис усан парк",
+    detail:
+      "Азид хоёрт ордог том усан парк — Атлантист бүтэн өдрийг өнгөрүүлнэ. Бүх насныханд зориулсан олон төрлийн усан тоглоомтой. Оройн хоолны дараа буудалдаа буцна.",
+    meals: "Өглөө, орой",
+    hotel: SANYA_HOTEL,
+  },
+  freeDay("6-р өдөр"),
+  freeDay("7-р өдөр"),
+  {
+    day: "8-р өдөр",
+    title: "Саняа → Хайкоу → Улаанбаатар · Сармагчингийн арал",
+    detail:
+      "12:00 цагт буудлаа хүлээлгэн өгч Хайкоу руу хөдөлнө. Замдаа хэдэн мянган сармагчин чөлөөтэй амьдардаг Nanwan Monkey Island-д зочилно. Хайкоуд оройн хоол, шоппинг хийсний дараа нисэх буудалд бүртгүүлж, өглөөний 09:10 цагт Улаанбаатарт газардана.",
+    flight: HAINAN_FLIGHT_BACK,
+    meals: "Өглөө, орой",
+  },
+];
+
+const hainanIncludes = [
+  "Улаанбаатар ↔ Хайнань нислэгийн тийз",
+  "Зочид буудал",
+  "Хөтөлбөрт тусгасан хоол",
+  "Хөтөлбөрт заасан үзвэрүүдийн тийз",
+  "Монгол хөтөч",
+  "Аяллын даатгал",
+];
+
+const hainanExcludes = ["Хөтөлбөрт тусгагдаагүй хоол", "Хувийн зардал, шоппинг"];
+
+const hainanHighlights = ["Байшилин шилэн гүүр", "Задгай далайн аялал", "Атлантис усан парк", "Сармагчингийн арал"];
+
+const hainanStay = "Timton Fuhe Hotel, Саняа";
+
+const hainanChildNote =
+  "12 хүртэлх насны хүүхэд эцэг эхтэйгээ нэг оронд (нэмэлт оргүй) унтвал ₮300'000 хямдралтай, тусдаа нэмэлт ортой бол насанд хүрсэн хүнтэй ижил үнээр аялна.";
+
+const hainanGallery = [
+  asset("fdd22cd7-b160-4283-ad8d-4c1b480f02fe/tropical-aerial-coast.webp"),
+  asset("7b5ed1a8-babf-40dd-96da-6f5d03decabb/day2-baishilin-glass-bridge.webp"),
+  asset("2d8aedf6-198b-4f9c-89d9-dc103f74791c/day4-open-sea-trip.jpg"),
+  asset("6e554dbe-0cc5-4764-b3ee-5c034d6f238d/day5-atlantis-slide.webp"),
+  asset("1fdc184f-1bde-4948-a6d5-bf486234f33c/day5-atlantis-splash.webp"),
+  asset("03b74806-5cfa-4635-b054-4429502b220a/day7-resort-pool.webp"),
+  asset("0e82da58-a1d0-4b0c-8fd7-21543fa8c2ad/day8-monkey-island.jpg"),
+];
+
+const hainanBase = {
+  destination: "Хайнань",
+  destinationKey: "hainan" as const,
+  duration: "8 өдөр · 7 шөнө",
+  nights: 7,
+  stay: hainanStay,
+  departure: "Улаанбаатар",
+  gallery: hainanGallery,
+  highlights: hainanHighlights,
+  includes: hainanIncludes,
+  excludes: hainanExcludes,
+  itinerary: hainanProgram,
+  notes: [hainanChildNote],
+};
+
 export const tours: Tour[] = [
   {
-    id: "weeknd-hk",
+    id: "weeknd-world-tour",
     title: "The Weeknd: Hong Kong аялал",
     destination: "Хонг Конг",
     destinationKey: "hongkong",
     description: "Тусгай аялал",
     story:
-      "The Weeknd концерт + Хонг Конг хот үзэх тусгай аялал. 5 өдөр, 4 шөнө — Elite Travel-ийн эрэлттэй хөтөлбөр.",
+      "The Weeknd-ийн тоглолт болон Хонг Конг хотын аялал нэг дор. Тоглолт болох газраас ердөө 600 метрт байрлах буудалд байрлаж, Викториа оргил, Оддын гудамж, Монстер барилгаар аялна.",
     price: 6290000,
     oldPrice: 6590000,
     duration: "5 өдөр · 4 шөнө",
     nights: 4,
-    rating: 4.9,
-    tag: "sale",
+    tag: "hot",
     discount: "-10%",
-    dates: "Концертын огноогоор",
-    stay: "4 одтой зочид буудал",
+    dates: "10/28 – 11/01",
+    stay: "Harbour Plaza & Degrees",
     departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/c38f5ae9-77ea-46f7-bed4-345fc9952db6/weeknd-hongkong.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/c38f5ae9-77ea-46f7-bed4-345fc9952db6/weeknd-hongkong.png", "https://elitetravel.mn/__l5e/assets-v1/2e9a9b43-175a-424a-b3b2-c1a5c1e94222/hero-jungle-tall.webp"],
+    image: asset("c38f5ae9-77ea-46f7-bed4-345fc9952db6/weeknd-hongkong.png"),
+    gallery: [
+      asset("e8c21d55-430a-4efc-bacb-debcb816eb6f/hongkong-skyline.jpg"),
+      asset("2e169e9d-ca05-4b94-91a5-498b017b7ad8/victoria-peak.jpg"),
+      asset("5ca5dad3-7b36-4d29-9388-268f9f0d500c/monster-building.jpg"),
+      asset("3a37852a-f726-4df9-bac7-b599b8de51c1/weeknd-stage.jpg"),
+    ],
     highlights: [
-      "The Weeknd концертын тасалбар",
-      "4 одтой зочид буудал",
-      "Онгоцны тийз + шилжүүлэлт",
-      "Хот үзэх хөтөлбөр",
+      "The Weeknd тоглолтын тасалбар",
+      "Тоглолтын газраас 600 м буудал",
+      "Викториа оргил · Оддын гудамж",
+      "Викториа булангаар завиар нар жаргалт",
     ],
     includes: [
-      "ОУ-ын тийз (UB ↔ HKG)",
-      "4 шөнийн байр",
-      "Концертын тасалбар",
-      "Шилжүүлэлт",
-      "Монгол хөтөч",
+      "Улаанбаатар ↔ Хонг Конг нислэгийн тийз",
+      "Зочид буудал",
+      "The Weeknd тоглолтын тасалбар",
+      "Өглөөний цай",
+      "Хөтөч, орчуулагч",
+      "Аяллын даатгал",
     ],
-    excludes: ["Хувийн зардал", "Даатгал", "Нэмэлт үзвэр"],
+    excludes: ["Өдөр, оройн хоол", "Хувийн зардал, шоппинг", "Чөлөөт өдрийн нэмэлт хөтөлбөрүүд"],
     itinerary: [
-      { day: "1-р өдөр", title: "Нислэг · суурьшил", detail: "UB-аас нисэж, зочид буудалд суурьшина." },
-      { day: "2-р өдөр", title: "Хот үзэх", detail: "Хонг Конгын гол газрууд, street food." },
-      { day: "3-р өдөр", title: "Концертын орой", detail: "The Weeknd show." },
-      { day: "4-р өдөр", title: "Чөлөөт цаг", detail: "Шоппинг, кафе, photo spot." },
-      { day: "5-р өдөр", title: "Буцах", detail: "Улаанбаатар руу буцна." },
+      {
+        day: "10/28 · 1-р өдөр",
+        title: "Улаанбаатар → Хонг Конг",
+        detail: "Өглөөний 06:45 цагт Улаанбаатараас хөөрч, 11:25 цагт Хонг Конгт газардана. Буудалдаа очиж амарна.",
+        flight: "06:45 – 11:25",
+        hotel: "Harbour Plaza & Degrees",
+      },
+      {
+        day: "10/29 · 2-р өдөр",
+        title: "Хонг Конг хотын аялал",
+        detail:
+          "Далайн түвшнээс 396 м өндөрт орших Викториа оргилоос Викториа булан, тэнгэр баганадсан барилгууд, Коулун хойгийг нэг дор харна. Өдрийн хоолны дараа Брюс Лигийн хүрэл хөшөөтэй Оддын гудамжаар (Avenue of Stars) алхаж, орой нь Викториа булангаар завиар нар жаргахыг үзнэ.",
+        meals: "Өглөөний цай",
+        hotel: "Harbour Plaza & Degrees",
+      },
+      {
+        day: "10/30 · 3-р өдөр",
+        title: "Чөлөөт өдөр",
+        detail:
+          "Шоппинг хийх, эсвэл Transformers: Age of Extinction болон Ghost in the Shell кинонд гарсан алдарт Монстер барилгын цогцолборыг үзэх боломжтой.",
+        meals: "Өглөөний цай",
+        hotel: "Harbour Plaza & Degrees",
+      },
+      {
+        day: "10/31 · 4-р өдөр",
+        title: "The Weeknd тоглолт",
+        detail:
+          "Өдөр нь тоглолтдоо бэлдэж, Хонг Конгийн Halloween-ийг сонирхоно. Тоглолт эхлэхээс 2 цагийн өмнө цугларч стадион руу орно. Хүсэн хүлээсэн тоглолтын дараа буудалдаа буцна, эсвэл үдшийг чөлөөтэй үргэлжлүүлнэ.",
+        meals: "Өглөөний цай",
+        hotel: "Harbour Plaza & Degrees",
+      },
+      {
+        day: "11/01 · 5-р өдөр",
+        title: "Хонг Конг → Улаанбаатар",
+        detail: "Өглөөний цайны дараа өрөөгөө хүлээлгэн өгч нисэх буудал руу хөдөлнө. 12:25 цагт хөөрч, 17:05 цагт Улаанбаатарт газардана.",
+        flight: "12:25 – 17:05",
+        meals: "Өглөөний цай",
+      },
     ],
+    pricing: {
+      child: "2–12 нас: нэмэлт ортой болон хамт унтвал ч том хүнтэй ижил үнэ",
+      childSharedBed: 6290000,
+      singleSupplement: 1200000,
+      depositPercent: 50,
+    },
   },
   {
-    id: "dately-hainan",
+    id: "dately-show-hainan",
     title: "Dately Show: Hainan Escape",
     destination: "Хайнань",
     destinationKey: "hainan",
-    description: "Тусгай хөтөлбөртэй аялал /Ганцхан удаа/",
-    story: "Dately Show + Хайнань далайн амралт. 8 өдөр, 7 шөнө — ганцхан удаагийн тусгай хөтөлбөр.",
+    description: "Тусгай хөтөлбөртэй аялал — ганцхан удаа",
+    story:
+      "Залуусад зориулсан тусгай хөтөлбөртэй Хайнань аялал: танилцах үдэшлэг, далайн эргийн Dately Show, дарвуулт завин дээрх Yacht Party, Comedy Show болон Атлантис усан парк.",
     price: 2990000,
     duration: "8 өдөр · 7 шөнө",
     nights: 7,
-    rating: 4.8,
     tag: "hot",
-    dates: "Show-ийн хуваариар",
-    stay: "Далайн эргийн зочид буудал",
+    dates: "Тусгай аялал — огноог лавлана уу",
+    stay: hainanStay,
     departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/378c2bed-1ce8-486a-a59d-1c97c2546511/dately-show-hainan.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/378c2bed-1ce8-486a-a59d-1c97c2546511/dately-show-hainan.png", "https://elitetravel.mn/__l5e/assets-v1/8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png"],
-    highlights: ["Dately Show", "Далайн амралт", "7 шөнийн байр", "Өглөөний цай"],
-    includes: ["ОУ-ын тийз", "7 шөнийн байр", "Show хөтөлбөр", "Шилжүүлэлт", "Хөтөч"],
-    excludes: ["Хувийн зардал", "Даатгал"],
+    image: asset("378c2bed-1ce8-486a-a59d-1c97c2546511/dately-show-hainan.png"),
+    gallery: [
+      asset("fdd22cd7-b160-4283-ad8d-4c1b480f02fe/tropical-aerial-coast.webp"),
+      asset("64d6e690-d5aa-45e9-8980-a3101fc32989/dately-show-day3.jpg"),
+      asset("6d4ac404-a8d5-4e1a-92a0-b049bb301580/yacht-party-day4.jpg"),
+      asset("b2caeed7-806e-4fa9-88d9-caa4b6bdd763/comedy-show-day5.webp"),
+      asset("827743b0-3171-4c3e-8935-8bce511193ee/atlantis-waterpark.webp"),
+    ],
+    highlights: ["Dately Blindfold Show", "Yacht Party · DJ Maexst", "Comedy Show", "Атлантис усан парк"],
+    includes: [
+      "Улаанбаатар ↔ Хайнань нислэгийн тийз",
+      "Зочид буудал, хөтөлбөрт заасан хоол",
+      "Dately Blindfold Show-ны бүртгэл, оролцоо",
+      "Yacht Party, Comedy Show, усан парк",
+      "Монгол хөтөч, зохион байгуулагч",
+      "Аяллын даатгал",
+    ],
+    excludes: ["Хувийн зардал, шоппинг", "Хөтөлбөрт заагаагүй хоол, үзвэрүүд"],
     itinerary: [
-      { day: "1–2", title: "Ирэлт · далай", detail: "Саньяд бууж, амралт." },
-      { day: "3–5", title: "Show + амралт", detail: "Dately Show болон далайн өдрүүд." },
-      { day: "6–7", title: "Чөлөөт өдөр", detail: "Арал, shopping." },
-      { day: "8", title: "Буцах", detail: "УБ руу." },
+      hainanDay1,
+      {
+        day: "2-р өдөр",
+        title: "Хайкоу → Саняа · Танилцах үдэшлэг",
+        detail:
+          "12:00 цагт буудлаа хүлээлгэн өгч халуун орны Саняа хотыг зорино. Буудалдаа байрлаж амарсны дараа оройн хоол, “Танилцах цаг” болно — хамт аялж буй залуустай ойр дотно танилцаж, шинэ найз нөхөдтэй болно.",
+        meals: "Өглөө, орой",
+        hotel: SANYA_HOTEL,
+        host: "Turuu & Zaya",
+      },
+      {
+        day: "3-р өдөр",
+        title: "Dately Show",
+        detail:
+          "Өдөр нь далайн эрэг дээр амрах, усанд сэлэх, хоттой танилцах чөлөөт цагтай. Орой 18:00–22:00 цагт далайн эргийн Lounge-д “Dately Show” тусгай арга хэмжээ болно.",
+        meals: "Өглөө",
+        hotel: SANYA_HOTEL,
+        host: "Turuu & Zaya",
+      },
+      {
+        day: "4-р өдөр",
+        title: "Yacht Party",
+        detail:
+          "Үдээс хойш дарвуулт завиар Саняагийн задгай тэнгист гарч, нар жаргах үеэр хөгжим, бүжиг, тоглоом, зураг авалттай Yacht Party-д оролцоно.",
+        meals: "Өглөө",
+        hotel: SANYA_HOTEL,
+        host: "Bayraa Showman · DJ Maexst",
+      },
+      {
+        day: "5-р өдөр",
+        title: "Comedy Show",
+        detail:
+          "Өдөр нь чөлөөтэй. Орой аяллын багаараа цугларч, өрсөлдөх бус хамтдаа инээлдэж, дурсамж бүтээх Comedy Show-д оролцоно.",
+        meals: "Өглөө",
+        hotel: SANYA_HOTEL,
+        host: "Баяраа, Тэмүүлэн, Даби, Төрөө, Заяа, Мөнхжин",
+      },
+      freeDay("6-р өдөр"),
+      {
+        day: "7-р өдөр",
+        title: "Атлантис усан парк",
+        detail: "Азид хоёрт ордог том усан парк — Атлантист бүтэн өдрийг өнгөрүүлж, оройн хоолны дараа буудалдаа буцна.",
+        meals: "Өглөө, орой",
+        hotel: SANYA_HOTEL,
+        host: "Bayraa Showman",
+      },
+      {
+        day: "8-р өдөр",
+        title: "Саняа → Хайкоу → Улаанбаатар",
+        detail:
+          "12:00 цагт буудлаа хүлээлгэн өгч Хайкоу руу хөдөлнө. Өдрийн хоол, шоппинг хийсний дараа нисэх буудалд бүртгүүлж, өглөөний 09:10 цагт Улаанбаатарт газардана.",
+        flight: HAINAN_FLIGHT_BACK,
+        meals: "Өглөө, өдөр",
+        host: "Bayraa Showman",
+      },
+    ],
+    pricing: {
+      child: "2–12 нас: хамт унтвал ₮2'690'000, нэмэлт ортой бол том хүнтэй ижил",
+      childSharedBed: 2690000,
+      singleSupplement: 700000,
+      depositPercent: 30,
+    },
+    notes: [
+      hainanChildNote,
+      "Арга хэмжээний үеэр согтууруулах ундааг хариуцлагатай хэрэглэж, бусад аялагчдын тав тух, аюулгүй байдлыг хүндэтгэнэ үү.",
     ],
   },
   {
-    id: "hainan-sep",
-    title: "Хайнань 9-р сарын сүүлийн аялал",
-    destination: "Хайнань",
-    destinationKey: "hainan",
-    description: "Үндсэн хөтөлбөртэй аялал. 7 хоног бүрийн Мягмар гарагт.",
-    story: "09/29 – 10/06 огноотой Хайнань үндсэн аялал. Хямдралтай эрэлттэй сонголт.",
-    price: 2590000,
-    oldPrice: 3290000,
-    duration: "8 өдөр · 7 шөнө",
-    nights: 7,
-    rating: 4.8,
-    tag: "sale",
-    discount: "-19%",
-    dates: "09/29 – 10/06",
-    stay: "Зочид буудал",
-    departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png", "https://elitetravel.mn/__l5e/assets-v1/8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png"],
-    highlights: ["Тогтмол огноо", "Үндсэн хөтөлбөр", "Далайн үзвэр", "Монгол хөтөч"],
-    includes: ["Тийз", "7 шөнийн байр", "Үзвэр", "Шилжүүлэлт"],
-    excludes: ["Хувийн зардал", "Даатгал"],
-    itinerary: [
-      { day: "1", title: "Нислэг", detail: "Санья руу." },
-      { day: "2–6", title: "Хөтөлбөр", detail: "Үндсэн үзвэр + далай." },
-      { day: "7–8", title: "Амралт · буцах", detail: "УБ руу." },
-    ],
-  },
-  {
-    id: "hainan-oct",
-    title: "Хайнань 10-р сарын аялал",
-    destination: "Хайнань",
-    destinationKey: "hainan",
-    description: "Үндсэн хөтөлбөртэй аялал.",
-    story: "10/06–10/13, 10/13–10/20, 10/20–10/27 — гурван огнооны сонголттой Хайнань аялал.",
-    price: 2690000,
-    duration: "8 өдөр · 7 шөнө",
-    nights: 7,
-    rating: 4.8,
-    dates: "10/06–10/13 · 10/13–10/20 · 10/20–10/27",
-    stay: "Зочид буудал",
-    departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png", "https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"],
-    highlights: ["3 огнооны сонголт", "Үндсэн хөтөлбөр", "8 өдөр", "Хөтөч"],
-    includes: ["Тийз", "Байр", "Үзвэр", "Шилжүүлэлт"],
-    excludes: ["Хувийн зардал", "Даатгал"],
-    itinerary: [
-      { day: "1", title: "Ирэлт", detail: "Санья." },
-      { day: "2–7", title: "Хөтөлбөр", detail: "Далай + үзвэр." },
-      { day: "8", title: "Буцах", detail: "УБ." },
-    ],
-  },
-  {
-    id: "hainan-main-a",
+    ...hainanBase,
+    id: "hainan-3",
     title: "Хайнань үндсэн аялал",
-    destination: "Хайнань",
-    destinationKey: "hainan",
     description: "Үндсэн хөтөлбөртэй аялал",
-    story: "10/27–11/03 болон 11/03–11/10 огноотой Хайнань үндсэн аялал.",
+    story:
+      "Хайнань арлын шилдэг үзвэрүүд — Байшилин шилэн гүүр, задгай далайн аялал, Атлантис усан парк, Сармагчингийн арал — болон Саняагийн далайн эрэг дээрх чөлөөт өдрүүд.",
     price: 3290000,
-    duration: "8 өдөр · 7 шөнө",
-    nights: 7,
-    rating: 4.8,
-    dates: "10/27–11/03 · 11/03–11/10",
-    stay: "Зочид буудал",
-    departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"],
-    highlights: ["Тогтмол огноо", "Үндсэн хөтөлбөр", "Далай", "Хөтөч"],
-    includes: ["Тийз", "Байр", "Үзвэр", "Шилжүүлэлт"],
-    excludes: ["Хувийн зардал"],
-    itinerary: [
-      { day: "1–8", title: "Үндсэн хөтөлбөр", detail: "Хайнань далай + үзвэр." },
-    ],
+    dates: "11/03 – 11/10",
+    image: asset("269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"),
+    pricing: { child: "2–12 нас: хамт унтвал ₮300'000 хямд", childSharedBed: 2990000, singleSupplement: 700000, depositPercent: 30 },
   },
   {
-    id: "hainan-main-b",
-    title: "Хайнань үндсэн аялал 11/10–11/17",
-    destination: "Хайнань",
-    destinationKey: "hainan",
+    ...hainanBase,
+    id: "hainan-4",
+    title: "Хайнань үндсэн аялал 11/10",
     description: "Үндсэн хөтөлбөртэй аялал",
-    story: "11/10–11/17 огноотой Хайнань үндсэн аялал.",
+    story:
+      "11-р сарын Хайнань аялал — шилэн гүүр, задгай далай, Атлантис усан парк, Сармагчингийн арал, Саняагийн далайн эрэг дээрх чөлөөт өдрүүд.",
     price: 2990000,
-    duration: "8 өдөр · 7 шөнө",
-    nights: 7,
-    rating: 4.8,
     dates: "11/10 – 11/17",
-    stay: "Зочид буудал",
-    departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"],
-    highlights: ["Тогтмол огноо", "Үндсэн хөтөлбөр", "Далай"],
-    includes: ["Тийз", "Байр", "Үзвэр"],
-    excludes: ["Хувийн зардал"],
-    itinerary: [
-      { day: "1–8", title: "Үндсэн хөтөлбөр", detail: "Хайнань." },
-    ],
+    image: asset("269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"),
+    pricing: { child: "2–12 нас: хамт унтвал ₮300'000 хямд", childSharedBed: 2690000, singleSupplement: 700000, depositPercent: 30 },
   },
   {
     id: "bali",
     title: "Бали, Индонез",
     destination: "Бали",
     destinationKey: "bali",
-    description: "Үндсэн хөтөлбөртэй аялал. /Хүссэн үедээ/",
-    story: "Бали арал — Ubud + далайн эрэг. Хүссэн үедээ эхлэх боломжтой уян хатан аялал.",
+    description: "Үндсэн хөтөлбөртэй аялал — хүссэн үедээ",
+    story:
+      "Балигийн хүрхрээ, ширэнгэн ой, сүм хийд, Нуса Пенида арлын оюу өнгөт далай. ATV, Bali Swing, pool club-ууд болон скутертэй чөлөөт өдрүүд. Огноогоо өөрөө сонгоно.",
     price: 5790000,
     oldPrice: 6290000,
     duration: "9 өдөр · 8 шөнө",
     nights: 8,
-    rating: 4.9,
     tag: "sale",
     discount: "-8%",
     dates: "Хүссэн үедээ",
-    stay: "Ubud + далайн буудал",
+    stay: "Bing Tang Bali Resort",
     departure: "Улаанбаатар",
-    image: "https://elitetravel.mn/__l5e/assets-v1/5c891b94-99c0-43e5-ba48-5bd368e46bfb/bali-island.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/5c891b94-99c0-43e5-ba48-5bd368e46bfb/bali-island.png", "https://elitetravel.mn/__l5e/assets-v1/2e9a9b43-175a-424a-b3b2-c1a5c1e94222/hero-jungle-tall.webp"],
-    highlights: ["Уян хатан огноо", "Ubud + далай", "8 шөнө", "Соёлын үзвэр"],
-    includes: ["Тийз", "Байр", "Үзвэр", "Дотоод шилжүүлэлт"],
-    excludes: ["Хувийн зардал", "Даатгал"],
-    itinerary: [
-      { day: "1–3", title: "Ubud", detail: "Ой, temple, cafe." },
-      { day: "4–8", title: "Далай", detail: "Beach days, sunset." },
-      { day: "9", title: "Буцах", detail: "УБ." },
+    image: asset("5c891b94-99c0-43e5-ba48-5bd368e46bfb/bali-island.png"),
+    gallery: [
+      asset("bda988b8-e92b-4bae-b69d-06439c461d63/nusa-penida-kelingking.jpeg"),
+      asset("94f4e234-ba23-4955-90a4-a2805d3b64dc/lempuyang-temple.jpeg"),
+      asset("acfd3918-56d6-4f92-a1bc-cd009716585e/bali-swing.jpeg"),
+      asset("d5ea132a-e522-4b8b-b655-9041ae09d3e1/cretya-ubud.jpeg"),
+      asset("663aa649-a1ea-463c-a87a-7cee5dc6ae8f/tirta-gangga.jpeg"),
+      asset("917fb7fd-616a-4765-bf2c-3ed32c051a43/uluwatu-surf-temple.jpeg"),
     ],
+    highlights: ["Нуса Пенида · Kelingking", "Lempuyang Heaven Gate", "Bali Swing · Cretya Ubud", "ATV · Tegenungan хүрхрээ"],
+    includes: [
+      "Улаанбаатар ↔ Денпасар нислэгийн тийз",
+      "Вилла / зочид буудал",
+      "Өглөөний цай, хөтөлбөрт багтсан хоол",
+      "Убуд, Нуса Пенида, сүмүүдийн тийз, тээвэр",
+      "Нутгийн англи хэлтэй хөтөч",
+      "Аяллын даатгал",
+    ],
+    excludes: ["Хөтөлбөрт багтаагүй хоол", "Хувийн зардал, spa, surf сургалт", "Индонезын визийн хөлс (шаардлагатай бол)"],
+    itinerary: [
+      { day: "1-р өдөр", title: "Дамжин нислэг", detail: "Улаанбаатараас дамжин нислэгээр Бали арал руу ниснэ.", hotel: "Bing Tang Bali Resort" },
+      {
+        day: "2-р өдөр",
+        title: "Kanto Lampo хүрхрээ · Bali Swing · Cretya Ubud",
+        detail:
+          "Шаталсан хадан дээгүүр урсах Kanto Lampo хүрхрээ, ширэнгэн ойг харсан аварга савлуур Bali Swing, үдээс хойш будааны дэнжийг харсан олон шатлалт усан сантай Cretya Ubud Pool & Day Club.",
+        meals: "Өглөө, өдөр",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "3-р өдөр",
+        title: "ATV · Tegenungan хүрхрээ · Pool Club",
+        detail:
+          "Мэргэжлийн зааварлагчтай ATV-гээр ширэнгэн ой, шаварлаг замаар адал явдалт аялал. Дараа нь Tegenungan хүрхрээ болон хүрхрээг харсан pool club-д амарна.",
+        meals: "Өглөө, өдөр",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "4-р өдөр",
+        title: "Чөлөөт өдөр",
+        detail: "Скутер түрээслэн Балигийн ногоон замаар аялах, далайн эрэгт амрах, серф хийх эсвэл нэмэлт аялалд хамрагдах боломжтой.",
+        meals: "Өглөө",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "5-р өдөр",
+        title: "Lempuyang Heaven Gate · Tirta Gangga",
+        detail:
+          "1,200 м өндөрт орших “Диваажингийн хаалга”-аас Агунг галт уулын үзэмжтэй зураг авна. Дараа нь 1948 онд баригдсан Tirta Gangga усан ордны чулуун гишгүүр, усан оргилуураар аялна.",
+        meals: "Өглөө, өдөр",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "6-р өдөр",
+        title: "Нуса Пенида арал",
+        detail:
+          "Хурдны завиар Нуса Пенида арал руу аялж, Kelingking Beach, Broken Beach, Angel's Billabong зэрэг дэлхийд алдартай газруудаар хөтөчтэй зочилно.",
+        meals: "Өглөө, өдөр",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "7-р өдөр",
+        title: "Чөлөөт өдөр · Uluwatu сүм",
+        detail: "Өдөр нь чөлөөтэй. Үд дунд өмнөд эргийн хадан цохио дээрх Uluwatu сүмд очиж, нар жаргах үзэмжийг харна.",
+        meals: "Өглөө",
+        hotel: "Bing Tang Bali Resort",
+      },
+      {
+        day: "8–9-р өдөр",
+        title: "Чөлөөт өдөр · Буцах нислэг",
+        detail: "Далайн эрэг, дэлгүүр, кафегаар зочилж бэлэг дурсгал авна. Нислэгийн цагийн дагуу Денпасарын нисэх буудлаас Улаанбаатар руу буцна.",
+        hotel: "Bing Tang Bali Resort",
+      },
+    ],
+    pricing: {
+      child: "2–12 нас: ₮5'490'000 (ор эзлэхгүй тохиолдолд)",
+      childSharedBed: 5490000,
+      childOwnBed: false,
+      singleSupplement: 1100000,
+      depositPercent: 50,
+    },
+  },
+  {
+    ...hainanBase,
+    id: "hainan-2",
+    title: "Хайнань 9-р сарын сүүлийн аялал",
+    description: "Үндсэн хөтөлбөртэй аялал",
+    story: "09/29 – 10/06 огноотой Хайнань үндсэн аялал.",
+    price: 2590000,
+    oldPrice: 3290000,
+    tag: "sale",
+    discount: "-19%",
+    status: "ended",
+    dates: "09/29 – 10/06",
+    image: asset("269c7c28-b5a3-46ae-b9ee-4b239417cbfa/hainan-main-sep15.png"),
+    pricing: { child: "2–12 нас: хамт унтвал ₮2'290'000", childSharedBed: 2290000, singleSupplement: 700000, depositPercent: 30 },
+  },
+  {
+    ...hainanBase,
+    id: "hainan",
+    title: "Хайнань 10-р сарын аялал",
+    description: "Үндсэн хөтөлбөртэй аялал",
+    story: "10/06 – 10/27 хооронд гурван огноотой Хайнань үндсэн аялал.",
+    price: 2690000,
+    status: "ended",
+    dates: "10/06–10/13 · 10/13–10/20 · 10/20–10/27",
+    image: asset("8ce9b508-74d0-44a0-89ed-cf34d352091e/hainan-overview.png"),
+    pricing: { child: "2–12 нас: хамт унтвал ₮2'390'000", childSharedBed: 2390000, singleSupplement: 700000, depositPercent: 30 },
   },
   {
     id: "bts",
@@ -280,18 +561,17 @@ export const tours: Tour[] = [
     destination: "Удахгүй",
     destinationKey: "soon",
     description: "Шинэ аялал бэлтгэгдэж байна",
-    story: "BTS үзвэртэй шинэ аялал бэлтгэгдэж байна. Waitlist-д бүртгүүлээрэй.",
+    story: "BTS үзвэртэй шинэ аялал бэлтгэгдэж байна. Мэдээлэл авахыг хүсвэл бидэнтэй холбогдоорой.",
     price: null,
-    duration: "Coming soon",
+    duration: "Тун удахгүй",
     nights: null,
-    rating: 5,
     tag: "soon",
-    image: "https://elitetravel.mn/__l5e/assets-v1/53fbda70-e185-458e-ac5f-6c0ff65288a2/bts-tour.jpg",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/53fbda70-e185-458e-ac5f-6c0ff65288a2/bts-tour.jpg"],
-    highlights: ["Концерт", "Хот үзэх", "Удахгүй"],
-    includes: ["Тун удахгүй"],
-    excludes: ["Баталгаажаагүй"],
-    itinerary: [{ day: "Soon", title: "Бэлтгэгдэж байна", detail: "Дэлгэрэнгүй удахгүй." }],
+    image: asset("53fbda70-e185-458e-ac5f-6c0ff65288a2/bts-tour.jpg"),
+    gallery: [],
+    highlights: ["Концерт аялал", "Тун удахгүй"],
+    includes: [],
+    excludes: [],
+    itinerary: [],
   },
   {
     id: "shakira-egypt",
@@ -299,17 +579,16 @@ export const tours: Tour[] = [
     destination: "Египет",
     destinationKey: "soon",
     description: "Шинэ аялал бэлтгэгдэж байна",
-    story: "Shakira + Египет тусгай аялал бэлтгэгдэж байна.",
+    story: "SHAKIRA-гийн тоглолт болон Египетийн аялал бэлтгэгдэж байна. Мэдээлэл авахыг хүсвэл бидэнтэй холбогдоорой.",
     price: null,
-    duration: "Coming soon",
+    duration: "Тун удахгүй",
     nights: null,
-    rating: 5,
     tag: "soon",
-    image: "https://elitetravel.mn/__l5e/assets-v1/847e6995-61b5-4cbc-b64b-cee410b3a47d/shakira-egypt.png",
-    gallery: ["https://elitetravel.mn/__l5e/assets-v1/847e6995-61b5-4cbc-b64b-cee410b3a47d/shakira-egypt.png"],
-    highlights: ["Концерт", "Египет", "Удахгүй"],
-    includes: ["Тун удахгүй"],
-    excludes: ["Баталгаажаагүй"],
-    itinerary: [{ day: "Soon", title: "Бэлтгэгдэж байна", detail: "Дэлгэрэнгүй удахгүй." }],
+    image: asset("847e6995-61b5-4cbc-b64b-cee410b3a47d/shakira-egypt.png"),
+    gallery: [],
+    highlights: ["Концерт аялал", "Египет", "Тун удахгүй"],
+    includes: [],
+    excludes: [],
+    itinerary: [],
   },
 ];

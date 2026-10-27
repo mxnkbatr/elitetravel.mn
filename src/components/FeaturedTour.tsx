@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export function FeaturedTour() {
-  const tour = getTour("weeknd-hk") ?? getTour("bali");
+  const tour = getTour("weeknd-world-tour") ?? getTour("bali");
   if (!tour) return null;
 
   return (
@@ -43,7 +43,7 @@ export function FeaturedTour() {
               <div>
                 <p className="text-xs text-muted">{tour.duration}</p>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <p className="font-display text-2xl font-semibold text-accent">
+                  <p className="font-num text-2xl font-semibold text-accent">
                     {formatPrice(tour.price)}
                   </p>
                   {tour.oldPrice ? (

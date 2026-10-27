@@ -1,6 +1,8 @@
 "use client";
 
+import { SaveButton } from "@/components/SaveButton";
 import { formatPrice, tours } from "@/data/tours";
+
 import { filterChipClass } from "@/lib/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -39,7 +41,7 @@ export function Tours({
 
   const visible = useMemo(() => {
     const list =
-      filter === "all" ? tours : tours.filter((t) => t.destinationKey === filter);
+      (filter === "all" ? tours : tours.filter((t) => t.destinationKey === filter)).filter((t) => t.status !== "ended");
     return typeof limit === "number" ? list.slice(0, limit) : list;
   }, [filter, limit]);
 
@@ -103,10 +105,8 @@ export function Tours({
                       className="object-cover transition duration-700 group-hover:scale-105"
                       sizes="(max-width:768px) 100vw, 33vw"
                     />
+                    <SaveButton tourId={tour.id} className="absolute right-3 top-3 z-10" />
                     <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-white/95 px-2.5 py-1 text-[0.7rem] font-medium text-ink">
-                        ★ {tour.rating.toFixed(1)}
-                      </span>
                       {tour.discount ? (
                         <span className="rounded-full bg-accent px-2.5 py-1 text-[0.7rem] font-semibold text-white">
                           {tour.discount}

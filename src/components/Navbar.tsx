@@ -1,159 +1,242 @@
 "use client";
 
 import { EliteLogo } from "@/components/EliteLogo";
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { openSearch } from "@/components/SearchOverlay";
+import { useTraveller } from "@/lib/traveller-store";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "/", label: "Нүүр" },
-  { href: "/destinations", label: "Чиглэл" },
   { href: "/tours", label: "Аяллууд" },
-  { href: "/resorts", label: "Амралт" },
+  { href: "/map", label: "Газрын зураг" },
+  { href: "/resorts", label: "Буудал" },
+  { href: "/news", label: "Мэдээ" },
   { href: "/about", label: "Бидний тухай" },
-  { href: "/contact", label: "Холбоо" },
 ];
 
+const PHONE = "+97690031771";
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Floating glass capsule: tucks away while scrolling down, returns on scroll up. */
 export function Navbar() {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { bookings, saved } = useTraveller();
+  const tripCount = bookings.length + saved.length;
   const { scrollY } = useScroll();
-  const bg = useTransform(scrollY, [0, 40], ["rgba(238,245,242,0)", "rgba(238,245,242,0.96)"]);
-  const border = useTransform(
-    scrollY,
-    [0, 40],
-    ["rgba(10,47,43,0)", "rgba(10,47,43,0.1)"],
-  );
-  const isHome = pathname === "/";
+  const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [hover, setHover] = useState<string | null>(null);
+
+  const [isPhone, setIsPhone] = useState(false);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    const unsub = scrollY.on("change", (v) => setScrolled(v > 24));
-    return () => unsub();
-  }, [scrollY]);
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
-  const lightLogo = isHome && !scrolled && !open;
+  useMotionValueEvent(scrollY, "change", (y) => {
+    const prev = scrollY.getPrevious() ?? 0;
+    setScrolled(y > 24);
+    setHidden(y > 160 && y > prev + 4);
+    if (y < prev - 4) setHidden(false);
+  });
+
+  // Light-on-dark over the home hero and over the open menu sheet
+  const onDark = (pathname === "/" && !scrolled && !isPhone) || open;
+  const pill = hover ?? links.find((l) => isActive(pathname, l.href))?.href ?? null;
 
   return (
     <>
       <motion.header
-        style={{ backgroundColor: bg, borderColor: border }}
-        className="fixed inset-x-0 top-0 z-[60] border-b pt-[env(safe-area-inset-top,0px)]"
+        animate={{ y: hidden && !open ? "-130%" : "0%" }}
+        transition={{ type: "spring", stiffness: 380, damping: 36 }}
+        className={`fixed inset-x-0 top-0 z-[65] px-3 pt-[calc(0.6rem+env(safe-area-inset-top,0px))] sm:px-5 ${
+          pathname === "/map" ? "max-sm:hidden" : ""
+        }`}
       >
-        <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <EliteLogo size="md" light={lightLogo} />
+        <div
+          className={`mx-auto flex h-[3.6rem] max-w-6xl items-center justify-between gap-3 rounded-full border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-500 sm:pl-5 ${
+            onDark
+              ? "border-white/15 bg-white/[0.07] backdrop-blur-md"
+              : "border-[var(--line)] bg-bg-elevated/85 shadow-[0_10px_40px_rgba(6,42,42,0.10)] backdrop-blur-xl"
+          }`}
+        >
+          <EliteLogo size="sm" light={onDark} />
 
-          <nav className="hidden items-center gap-7 md:flex">
-            {links.map((l, i) => {
-              const active =
-                l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+          <nav className="hidden items-center lg:flex" onMouseLeave={() => setHover(null)}>
+            {links.map((l) => {
+              const active = isActive(pathname, l.href);
               return (
-                <motion.div
+                <Link
                   key={l.href}
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 * i + 0.15 }}
+                  href={l.href}
+                  onMouseEnter={() => setHover(l.href)}
+                  className={`relative rounded-full px-4 py-2 text-[0.84rem] font-medium transition-colors ${
+                    onDark
+                      ? active || hover === l.href
+                        ? "text-white"
+                        : "text-white/70"
+                      : active || hover === l.href
+                        ? "text-foam"
+                        : "text-foam/60"
+                  }`}
                 >
-                  <Link
-                    href={l.href}
-                    className={`relative text-[0.84rem] tracking-[0.02em] transition ${
-                      active
-                        ? "font-semibold text-accent"
-                        : lightLogo
-                          ? "text-white/80 hover:text-white"
-                          : "text-foam/70 hover:text-foam"
-                    }`}
-                  >
-                    {l.label}
-                    {active ? (
-                      <motion.span
-                        layoutId="nav-underline"
-                        className="absolute -bottom-1 left-0 h-px w-full bg-gradient-to-r from-[#e8b86d] to-accent"
-                      />
-                    ) : null}
-                  </Link>
-                </motion.div>
+                  {pill === l.href ? (
+                    <motion.span
+                      layoutId="nav-pill"
+                      className={`absolute inset-0 rounded-full ${onDark ? "bg-white/15" : "bg-ink/[0.06]"}`}
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  ) : null}
+                  <span className="relative">{l.label}</span>
+                  {active ? (
+                    <motion.span
+                      layoutId="nav-dot"
+                      className="absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-[#e8b86d]"
+                    />
+                  ) : null}
+                </Link>
               );
             })}
           </nav>
 
-          <button
-            type="button"
-            aria-label="Цэс"
-            className={`grid size-10 place-items-center rounded-full border md:hidden ${
-              lightLogo
-                ? "border-white/30 bg-white/10 text-white"
-                : "border-[var(--line)] bg-bg-elevated text-foam"
-            }`}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <span className="flex w-3.5 flex-col gap-[3px]">
-              <span
-                className={`h-px transition ${open ? "translate-y-[4px] rotate-45" : ""} ${
-                  lightLogo ? "bg-white" : "bg-foam"
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={openSearch}
+              aria-label="Хайх"
+              className={`grid size-10 place-items-center rounded-full transition active:scale-90 ${
+                onDark ? "text-white hover:bg-white/10" : "text-foam hover:bg-ink/[0.06]"
+              }`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
+                <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </button>
+            <a
+              href={`tel:${PHONE}`}
+              aria-label="Залгах"
+              className={`grid size-10 place-items-center rounded-full transition active:scale-90 ${
+                onDark ? "text-white hover:bg-white/10" : "text-foam hover:bg-ink/[0.06]"
+              }`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M6.6 3.5h2.6l1.4 4.1-2 1.4a12 12 0 0 0 6.4 6.4l1.4-2 4.1 1.4v2.6a2 2 0 0 1-2.1 2A16.5 16.5 0 0 1 4.6 5.6a2 2 0 0 1 2-2.1Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+
+            <Link
+              href="/bookings"
+              className={`btn-shine hidden h-10 items-center gap-2 rounded-full pl-4 pr-1.5 text-[0.8rem] font-semibold transition hover:-translate-y-0.5 sm:inline-flex ${
+                onDark ? "bg-white text-ink" : "bg-ink text-white"
+              }`}
+            >
+              Миний захиалга
+              <motion.span
+                key={tripCount}
+                initial={{ scale: 0.6 }}
+                animate={{ scale: 1 }}
+                className={`grid size-7 place-items-center rounded-full text-[0.7rem] font-bold ${
+                  tripCount ? "bg-[#e8b86d] text-ink" : onDark ? "bg-ink/10" : "bg-white/15"
                 }`}
-              />
-              <span
-                className={`h-px transition ${open ? "opacity-0" : ""} ${
-                  lightLogo ? "bg-white" : "bg-foam"
-                }`}
-              />
-              <span
-                className={`h-px transition ${open ? "-translate-y-[4px] -rotate-45" : ""} ${
-                  lightLogo ? "bg-white" : "bg-foam"
-                }`}
-              />
-            </span>
-          </button>
+              >
+                {tripCount || "→"}
+              </motion.span>
+            </Link>
+
+            <button
+              type="button"
+              aria-label={open ? "Цэс хаах" : "Цэс нээх"}
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+              className={`relative grid size-10 place-items-center rounded-full transition active:scale-90 lg:hidden ${
+                open ? "bg-ink text-white" : onDark ? "bg-white/10 text-white" : "bg-ink/[0.06] text-foam"
+              }`}
+            >
+              <span className="relative block h-3 w-4">
+                <motion.span
+                  className="absolute left-0 top-0 h-[1.5px] w-full rounded-full bg-current"
+                  animate={open ? { top: "50%", rotate: 45 } : { top: "0%", rotate: 0 }}
+                />
+                <motion.span
+                  className="absolute bottom-0 left-0 h-[1.5px] w-full rounded-full bg-current"
+                  animate={open ? { bottom: "45%", rotate: -45 } : { bottom: "0%", rotate: 0 }}
+                />
+              </span>
+            </button>
+          </div>
         </div>
       </motion.header>
 
       <AnimatePresence>
         {open ? (
           <motion.div
-            className="fixed inset-0 z-[55] md:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[62] flex flex-col bg-[#062a2a] px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(6rem+env(safe-area-inset-top))] text-white lg:hidden"
+            initial={{ clipPath: "circle(0% at calc(100% - 2.5rem) 2.6rem)" }}
+            animate={{ clipPath: "circle(150% at calc(100% - 2.5rem) 2.6rem)" }}
+            exit={{ clipPath: "circle(0% at calc(100% - 2.5rem) 2.6rem)" }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <button
-              type="button"
-              className="absolute inset-0 bg-ink/25"
-              aria-label="Хаах"
-              onClick={() => setOpen(false)}
-            />
-            <motion.nav
-              initial={{ y: -16, opacity: 0, scale: 0.98 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: -8, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              className="absolute inset-x-4 top-[calc(4.75rem+env(safe-area-inset-top))] overflow-hidden rounded-[1.25rem] border border-[var(--line)] bg-bg-elevated p-2 shadow-[var(--shadow)]"
-            >
-              {links.map((l, i) => (
-                <motion.div
-                  key={l.href}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.04 * i }}
-                >
-                  <Link
-                    href={l.href}
-                    onClick={() => setOpen(false)}
-                    className="block rounded-xl px-4 py-3.5 text-[0.95rem] text-foam/90"
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_80%_10%,rgba(232,184,109,0.18),transparent_50%),radial-gradient(ellipse_at_0%_100%,rgba(46,196,182,0.2),transparent_50%)]" />
+            <nav className="relative flex flex-col">
+              {[...links, { href: "/bookings", label: "Миний захиалга" }].map((l, i) => {
+                const active = isActive(pathname, l.href);
+                return (
+                  <motion.div
+                    key={l.href}
+                    initial={{ opacity: 0, y: 28 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.12 + i * 0.05, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    {l.label}
-                  </Link>
-                </motion.div>
-              ))}
-              <a
-                href="tel:+97690031771"
-                className="mt-1 flex h-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
-              >
-                Холбогдох
+                    <Link
+                      href={l.href}
+                      onClick={() => setOpen(false)}
+                      className="flex items-baseline justify-between border-b border-white/10 py-3.5"
+                    >
+                      <span className={`font-display text-[2.1rem] font-semibold leading-none tracking-[-0.03em] ${active ? "italic text-[#e8b86d]" : ""}`}>
+                        {l.label}
+                      </span>
+                      <span className="text-xs text-white/40">0{i + 1}</span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </nav>
+
+            <motion.div
+              className="relative mt-auto grid grid-cols-2 gap-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+            >
+              <a href={`tel:${PHONE}`} className="flex h-12 items-center justify-center rounded-full bg-[#e8b86d] text-sm font-semibold text-ink">
+                Залгах
               </a>
-            </motion.nav>
+              <a
+                href="https://ig.me/m/elitetravelmn"
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-12 items-center justify-center rounded-full border border-white/25 text-sm font-semibold"
+              >
+                Instagram
+              </a>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

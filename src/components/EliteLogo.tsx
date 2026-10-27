@@ -9,89 +9,33 @@ type EliteLogoProps = {
 };
 
 const sizes = {
-  sm: { mark: 32, elite: "text-[1.2rem]", travel: "text-[0.55rem]", gap: "gap-2" },
-  md: { mark: 40, elite: "text-[1.4rem]", travel: "text-[0.58rem]", gap: "gap-2.5" },
-  lg: { mark: 52, elite: "text-[1.75rem]", travel: "text-[0.62rem]", gap: "gap-3" },
-  hero: { mark: 64, elite: "text-[2.15rem]", travel: "text-[0.68rem]", gap: "gap-3.5" },
+  sm: { mark: 30, elite: "text-[1.05rem]", travel: "text-[0.5rem]", gap: "gap-2" },
+  md: { mark: 38, elite: "text-[1.25rem]", travel: "text-[0.54rem]", gap: "gap-2.5" },
+  lg: { mark: 50, elite: "text-[1.6rem]", travel: "text-[0.6rem]", gap: "gap-3" },
+  hero: { mark: 64, elite: "text-[2rem]", travel: "text-[0.66rem]", gap: "gap-3.5" },
 };
 
-function Mark({
-  size,
-  light,
-  uid,
-}: {
-  size: number;
-  light: boolean;
-  uid: string;
-}) {
-  const gold = light ? "#f3e0c2" : "#e8b86d";
-  const goldDeep = light ? "#e8b86d" : "#c9964a";
-  const waveA = light ? "#7ef0e0" : "#18a89b";
-  const waveB = light ? "#2ec4b6" : "#0e8f84";
-
+/** Brand mark: serif E crossed by a flight swoosh, plane climbing off the top arm. */
+function Mark({ size, color }: { size: number; color: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      className="shrink-0"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id={`${uid}-sun`} x1="0.3" y1="0" x2="0.7" y2="1">
-          <stop offset="0%" stopColor="#fff1c2" />
-          <stop offset="55%" stopColor={gold} />
-          <stop offset="100%" stopColor={goldDeep} />
-        </linearGradient>
-        <linearGradient id={`${uid}-wave`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={waveA} />
-          <stop offset="100%" stopColor={waveB} />
-        </linearGradient>
-      </defs>
-
-      {/* refined sun rays — only upper arc */}
-      {[210, 230, 250, 270, 290, 310, 330].map((deg) => {
-        const a = (deg * Math.PI) / 180;
-        const x1 = 32 + Math.cos(a) * 12;
-        const y1 = 24 + Math.sin(a) * 12;
-        const x2 = 32 + Math.cos(a) * 18.5;
-        const y2 = 24 + Math.sin(a) * 18.5;
-        return (
-          <line
-            key={deg}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={gold}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        );
-      })}
-
-      <circle cx="32" cy="24" r="7.5" fill={`url(#${uid}-sun)`} />
-
-      {/* single elegant wave */}
+    <svg width={size} height={size} viewBox="0 0 64 64" className="shrink-0" aria-hidden>
+      {/* Serif E */}
       <path
-        d="M8 46
-           C14 38, 22 38, 28 43
-           C34 48, 40 48, 46 42
-           C50 38, 54 38, 58 41
-           L58 54
-           C50 50, 42 52, 34 50
-           C26 48, 18 52, 8 50 Z"
-        fill={`url(#${uid}-wave)`}
+        fill={color}
+        d="M14 9h30.5l.9 9.2h-1.4C42.6 13 40.4 11.6 35 11.6H26.2v18.1h6.6c4.5 0 5.6-1.3 6.2-5.3h1.4v13.4H39c-.6-4.1-1.7-5.4-6.2-5.4h-6.6v17.9c0 2.6.9 3.2 3.6 3.2h6.3c6 0 8.3-1.9 10.5-8.1h1.4L46.6 55H14v-1.3c3.7-.4 4.4-1.1 4.4-4.6V14.9c0-3.5-.7-4.2-4.4-4.6Z"
       />
+      {/* Swoosh crossing the stem */}
       <path
-        d="M10 49
-           C18 45, 24 47, 32 50
-           C40 53, 48 49, 56 48"
-        fill="none"
-        stroke={light ? "rgba(255,255,255,0.35)" : "rgba(255,253,249,0.35)"}
-        strokeWidth="1.2"
-        strokeLinecap="round"
+        fill={color}
+        d="M8 47.5C17 37.6 30.6 30.6 50.6 27.4c-17.8 4.4-30 10.8-40.6 21.6Z"
       />
+      {/* Plane */}
+      <g transform="translate(53.6 22.4) rotate(-32)">
+        <path
+          fill={color}
+          d="M-5.6-.7 2.6-1l3-3.6h1.3L5.2-1.1 7.6-1.2c.9 0 .9 2.4 0 2.4l-2.4-.1L6.9 4.6H5.6l-3-3.6-8.2-.3c-.7-.1-.7-1.3 0-1.4Zm-1.2-2.1h1l1.3 1.6-1.3.1Zm0 5.6.9-1.7 1.3.1-1.2 1.6Z"
+        />
+      </g>
     </svg>
   );
 }
@@ -104,27 +48,22 @@ export function EliteLogo({
   className = "",
 }: EliteLogoProps) {
   const s = sizes[size];
-  const ink = light ? "#fffef8" : "#0a2a26";
-  const accent = light ? "#7ef0e0" : "#0e8f84";
-  // unique gradient ids when multiple logos on one page
-  const uid = `el-${size}-${light ? "l" : "d"}`;
+  // Sage on deep green, as in the brand artwork; forest green on light pages
+  const color = light ? "#c4d6bd" : "#123f30";
+  const sub = light ? "#a9c2a3" : "#4f7363";
 
   const inner = (
     <span className={`inline-flex items-center ${s.gap} ${className}`}>
-      <Mark size={s.mark} light={light} uid={uid} />
+      <Mark size={s.mark} color={color} />
       {showWordmark ? (
-        <span className="flex flex-col justify-center leading-none">
-          <span
-            className={`font-display font-semibold lowercase tracking-[-0.045em] ${s.elite}`}
-            style={{ color: ink }}
-          >
-            elite
+        <span className="flex flex-col items-center justify-center leading-none">
+          <span className={`font-brand font-semibold uppercase tracking-[0.32em] ${s.elite}`} style={{ color }}>
+            Elite
           </span>
-          <span
-            className={`mt-[0.35em] font-semibold uppercase tracking-[0.28em] ${s.travel}`}
-            style={{ color: accent }}
-          >
-            travel
+          <span className={`font-brand mt-[0.45em] flex items-center gap-[0.5em] uppercase tracking-[0.42em] ${s.travel}`} style={{ color: sub }}>
+            <span className="h-px w-[1.2em]" style={{ background: sub }} />
+            Travel
+            <span className="-ml-[0.42em] h-px w-[1.2em]" style={{ background: sub }} />
           </span>
         </span>
       ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { media } from "@/lib/cloudinary";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -45,15 +46,15 @@ export function CinematicBand({
           loop
           playsInline
           preload="metadata"
-          poster="/media/web-hero-seascape-frame.jpg"
+          poster={media.seascapePoster}
           aria-hidden
         >
-          <source src="/media/web-hero-seascape.mp4" type="video/mp4" />
+          <source src={media.seascapeVideo} />
         </video>
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-b from-[#041f1f]/55 via-[#062a2a]/35 to-[#041f1f]/70" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(126,240,224,0.12),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(126, 240, 224,0.12),transparent_55%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-bg to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg to-transparent" />
 

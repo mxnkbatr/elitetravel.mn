@@ -14,8 +14,8 @@ export default function ResortsRoute() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <PageHeader
           eyebrow="Resorts"
-          title="Амралтын газрууд"
-          description="Далай, нар, тайван байршил — аяллынхаа дараа амраарай."
+          title="Таны буудаллах газрууд"
+          description="Аялал бүрийн буудлыг хөтөлбөртэй нь хамт — хаана байрлаж, юу үзэхээ урьдчилан мэдээрэй."
         />
         <div className="mt-8">
           <ResortsPage />

@@ -42,7 +42,7 @@ export function AiHelper() {
         type="button"
         aria-label="AI туслах"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[70] inline-flex h-12 items-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(0,168,144,0.4)] sm:bottom-6 sm:right-6"
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[70] inline-flex h-12 items-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(14, 143, 132,0.4)] sm:bottom-6 sm:right-6"
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
       >
@@ -57,7 +57,7 @@ export function AiHelper() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-[min(70vh,440px)] w-[min(calc(100vw-2rem),360px)] flex-col overflow-hidden rounded-[1.25rem] border border-[var(--line)] bg-bg-elevated shadow-[0_24px_60px_rgba(10,47,43,0.18)] sm:bottom-24 sm:right-6"
+            className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-[min(70vh,440px)] w-[min(calc(100vw-2rem),360px)] flex-col overflow-hidden rounded-[1.25rem] border border-[var(--line)] bg-bg-elevated shadow-[0_24px_60px_rgba(10, 42, 38,0.18)] sm:bottom-24 sm:right-6"
           >
             <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
               <div>

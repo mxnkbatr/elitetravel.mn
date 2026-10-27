@@ -1,18 +1,23 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useTraveller } from "@/lib/traveller-store";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/", label: "Нүүр", icon: HomeIcon },
-  { href: "/destinations", label: "Чиглэл", icon: MapIcon },
   { href: "/tours", label: "Аялал", icon: CompassIcon },
-  { href: "/resorts", label: "Амралт", icon: ResortIcon },
+  { href: "/map", label: "Газрын зураг", icon: MapIcon },
+  { href: "/news", label: "Мэдээ", icon: NewsIcon },
+  { href: "/bookings", label: "Захиалга", icon: TicketIcon },
 ];
 
 export function MobileDock() {
   const pathname = usePathname();
+  const { bookings, saved } = useTraveller();
+  const badge = bookings.length + saved.length;
+  // Tour detail pages show their own booking bar instead
+  if (/^\/tours\/[^/]+/.test(pathname)) return null;
 
   return (
     <nav
@@ -23,7 +28,7 @@ export function MobileDock() {
         initial={{ y: 24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto flex max-w-md items-stretch justify-between rounded-[1.5rem] border border-white/10 bg-[#10241f] px-1.5 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+        className="mx-auto flex max-w-md items-stretch justify-between rounded-[1.5rem] border border-white/10 bg-[#062a2a]/92 backdrop-blur-xl px-1.5 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
       >
         {items.map((item) => {
           const active =
@@ -33,21 +38,34 @@ export function MobileDock() {
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex min-h-[3.25rem] min-w-[4.25rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-[1.15rem] text-[0.66rem] font-medium tracking-[0.02em] transition active:scale-95 ${
-                active ? "text-accent" : "text-foam/45"
+              className={`relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[1.15rem] text-[0.66rem] font-medium tracking-[0.02em] transition active:scale-95 ${
+                active ? "text-[#7ef0e0]" : "text-white/55"
               }`}
             >
               {active ? (
                 <motion.span
                   layoutId="dock-pill"
-                  className="absolute inset-[3px] rounded-[1.05rem] bg-accent/12 ring-1 ring-accent/30"
+                  className="absolute inset-[3px] rounded-[1.05rem] bg-white/10 ring-1 ring-white/15"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               ) : null}
               <span className="relative z-10">
                 <item.icon active={active} />
+                <AnimatePresence>
+                  {item.href === "/bookings" && badge ? (
+                    <motion.span
+                      key={badge}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute -right-2.5 -top-1.5 grid min-w-4 place-items-center rounded-full bg-[#e8b86d] px-1 text-[0.58rem] font-bold leading-4 text-ink"
+                    >
+                      {badge}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
               </span>
-              <span className="relative z-10">{item.label}</span>
+              <span className="relative z-10 max-w-full truncate px-0.5">{item.label}</span>
             </Link>
           );
         })}
@@ -56,20 +74,6 @@ export function MobileDock() {
   );
 }
 
-function HomeIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
-        stroke="currentColor"
-        strokeWidth={active ? 1.85 : 1.5}
-        strokeLinejoin="round"
-        fill={active ? "currentColor" : "none"}
-        fillOpacity={active ? 0.18 : 0}
-      />
-    </svg>
-  );
-}
 
 function MapIcon({ active }: { active?: boolean }) {
   return (
@@ -103,16 +107,29 @@ function CompassIcon({ active }: { active?: boolean }) {
   );
 }
 
-function ResortIcon({ active }: { active?: boolean }) {
+
+
+function NewsIcon({ active }: { active?: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="4.5" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth={active ? 1.85 : 1.5} fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.18 : 0} />
+      <path d="M8 9h8M8 12.5h8M8 16h5" stroke="currentColor" strokeWidth={active ? 1.85 : 1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TicketIcon({ active }: { active?: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M4 20h16M6 20V10l6-4 6 4v10M10 20v-5h4v5"
+        d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4V7.5Z"
         stroke="currentColor"
         strokeWidth={active ? 1.85 : 1.5}
         strokeLinejoin="round"
+        fill={active ? "currentColor" : "none"}
+        fillOpacity={active ? 0.18 : 0}
       />
-      <path d="M12 8.5v.01" stroke="currentColor" strokeWidth={active ? 2.1 : 1.75} strokeLinecap="round" />
+      <path d="M14 6v12" stroke="currentColor" strokeWidth={1.5} strokeDasharray="1.5 2" />
     </svg>
   );
 }

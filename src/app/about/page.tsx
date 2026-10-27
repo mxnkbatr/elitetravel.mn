@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Бидний тухай",
-  description: "Elite Travel Mongolia — Explore. Dream. Discover.",
+  description: "Elite Travel Mongolia — Travel Beyond Ordinary. Сонгомол чиглэл, тансаг туршлага, найдвартай үйлчилгээ.",
 };
 
 export default function AboutPage() {

@@ -1,0 +1,230 @@
+"use client";
+
+import { bookingMessage } from "@/components/BookingPlanner";
+import { TourCard } from "@/components/TourCard";
+import { formatPrice, getTour, isBookable, tours } from "@/data/tours";
+import { departureOf } from "@/lib/dates";
+import { removeBooking, useTraveller, type BookingRequest } from "@/lib/traveller-store";
+import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+
+function Countdown({ date }: { date?: string }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    // Client-only clock: first tick after mount keeps server and client markup identical
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, []);
+  const dep = departureOf(date);
+  if (!dep || now == null) return null;
+  const days = Math.ceil((dep.getTime() - now) / 86400000);
+  if (days < 0) return <span className="text-xs text-muted">Хөдөлсөн</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8b86d]/20 px-2.5 py-1 text-xs font-semibold text-[#8a5a12]">
+      <span className="size-1.5 animate-pulse rounded-full bg-[#e8b86d]" />
+      {days === 0 ? "Өнөөдөр хөдөлнө" : `Хөдлөхөд ${days} хоног`}
+    </span>
+  );
+}
+
+const steps = ["Хүсэлт үүссэн", "Багт илгээх", "Баг баталгаажуулна", "Урьдчилгаа төлөх"];
+
+function BookingCard({ b }: { b: BookingRequest }) {
+  const tour = getTour(b.tourId);
+  const [copied, setCopied] = useState(false);
+  if (!tour) return null;
+
+  const party = [`${b.adults} том хүн`, b.kidsOwnBed + b.kidsSharedBed ? `${b.kidsOwnBed + b.kidsSharedBed} хүүхэд` : ""]
+    .filter(Boolean)
+    .join(" · ");
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(bookingMessage(tour!, b));
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      className="epic-card grid overflow-hidden md:grid-cols-[280px_1fr]"
+    >
+      <Link href={`/tours/${tour.id}`} className="relative block aspect-[16/9] md:aspect-auto">
+        <Image src={tour.image} alt={tour.title} fill className="object-cover" sizes="(max-width:768px) 100vw, 280px" />
+        <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-semibold text-white backdrop-blur-sm">
+          {b.id}
+        </span>
+      </Link>
+
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-accent">{tour.destination}</p>
+            <h3 className="mt-1 font-display text-2xl font-semibold leading-tight">{tour.title}</h3>
+            <p className="mt-1 text-sm text-muted">
+              {[b.date, party, tour.duration].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <Countdown date={b.date} />
+        </div>
+
+        <ol className="mt-5 grid grid-cols-4 gap-1.5">
+          {steps.map((s, i) => (
+            <li key={s}>
+              <div className={`h-1 rounded-full ${i === 0 ? "bg-accent" : "bg-[var(--line)]"}`} />
+              <p className={`mt-1.5 text-[0.62rem] leading-tight ${i === 0 ? "font-semibold text-accent" : "text-muted"}`}>{s}</p>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-[var(--line)] pt-4">
+          <div>
+            <p className="text-xs text-muted">Урьдчилсан дүн</p>
+            <p className="font-num text-2xl font-semibold text-accent">{formatPrice(b.total)}</p>
+            {b.deposit ? <p className="text-xs text-muted">Урьдчилгаа {formatPrice(b.deposit)}</p> : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="https://ig.me/m/elitetravelmn"
+              target="_blank"
+              rel="noreferrer"
+              onClick={copy}
+              className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-white"
+            >
+              {copied ? "Хуулсан ✓ Instagram" : "Instagram-аар илгээх"}
+            </a>
+            <a href="tel:+97690031771" className="inline-flex h-10 items-center rounded-full border border-[var(--line)] px-4 text-sm font-medium">
+              Залгах
+            </a>
+            <button
+              type="button"
+              onClick={() => removeBooking(b.id)}
+              className="inline-flex h-10 items-center rounded-full px-3 text-sm text-muted transition hover:text-[#c2410c]"
+            >
+              Устгах
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+export function BookingsPage() {
+  const { saved, bookings } = useTraveller();
+  const [tab, setTab] = useState<"bookings" | "saved">("bookings");
+  const savedTours = saved.map(getTour).filter((t) => t != null);
+  const suggestions = tours.filter((t) => isBookable(t) && !saved.includes(t.id)).slice(0, 3);
+
+  const tabs = [
+    { key: "bookings" as const, label: "Захиалгын хүсэлт", count: bookings.length },
+    { key: "saved" as const, label: "Хадгалсан аялал", count: savedTours.length },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="inline-flex rounded-full border border-[var(--line)] bg-bg-elevated p-1">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`relative rounded-full px-4 py-2 text-sm font-medium transition sm:px-5 ${tab === t.key ? "text-white" : "text-muted hover:text-foam"}`}
+          >
+            {tab === t.key ? (
+              <motion.span layoutId="bookings-tab" className="absolute inset-0 rounded-full bg-ink" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
+            ) : null}
+            <span className="relative">
+              {t.label} <span className="opacity-60">{t.count}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {tab === "bookings" ? (
+          <motion.div key="b" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+            {bookings.length ? (
+              <>
+                <AnimatePresence>
+                  {bookings.map((b) => (
+                    <BookingCard key={b.id} b={b} />
+                  ))}
+                </AnimatePresence>
+                <p className="text-xs leading-relaxed text-muted">
+                  Хүсэлтүүд зөвхөн энэ төхөөрөмж дээр хадгалагдана. Захиалга баталгаажихын тулд Instagram эсвэл утсаар манай багт илгээнэ үү.
+                </p>
+              </>
+            ) : (
+              <Empty
+                title="Одоогоор захиалгын хүсэлт алга"
+                body="Аяллаа сонгоод үнийн тооцоолуураар хүн, өрөөгөө тохируулж хүсэлт үүсгээрэй."
+                cta={{ href: "/tours", label: "Аялал сонгох" }}
+              />
+            )}
+          </motion.div>
+        ) : (
+          <motion.div key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {savedTours.length ? (
+              <div className="hide-scrollbar flex flex-wrap gap-4">
+                {savedTours.map((t) => (
+                  <TourCard key={t.id} tour={t} />
+                ))}
+              </div>
+            ) : (
+              <Empty
+                title="Хадгалсан аялал алга"
+                body="Аяллын карт дээрх ♡ дээр дарж таалагдсан аяллаа хадгалаарай."
+                cta={{ href: "/tours", label: "Аяллууд үзэх" }}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {suggestions.length ? (
+        <section className="pt-6">
+          <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Танд санал болгох</h2>
+          <div className="hide-scrollbar -mx-4 mt-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+            {suggestions.map((t) => (
+              <TourCard key={t.id} tour={t} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function Empty({ title, body, cta }: { title: string; body: string; cta: { href: string; label: string } }) {
+  return (
+    <div className="grid place-items-center rounded-[1.5rem] border border-dashed border-[var(--line)] bg-bg-elevated px-6 py-14 text-center">
+      <motion.div
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className="grid size-16 place-items-center rounded-full bg-accent-mist text-2xl"
+        aria-hidden
+      >
+        ✈
+      </motion.div>
+      <h3 className="mt-5 font-display text-2xl font-semibold">{title}</h3>
+      <p className="mt-2 max-w-sm text-sm text-muted">{body}</p>
+      <Link href={cta.href} className="btn-shine mt-6 inline-flex h-11 items-center rounded-full bg-accent px-6 text-sm font-semibold text-white">
+        {cta.label} →
+      </Link>
+    </div>
+  );
+}
