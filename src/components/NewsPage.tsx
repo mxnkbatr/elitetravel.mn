@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 
 const categories: ("Бүгд" | NewsCategory)[] = ["Бүгд", "Мэдээ", "Урамшуулал", "Зөвлөгөө"];
 
-const tone: Record<NewsCategory, string> = {
+export const tone: Record<NewsCategory, string> = {
   Мэдээ: "bg-accent text-white",
   Урамшуулал: "bg-[#e8b86d] text-ink",
   Зөвлөгөө: "bg-white text-ink",
@@ -52,7 +52,7 @@ function Card({ item, big, onOpen }: { item: NewsItem; big?: boolean; onOpen: ()
   );
 }
 
-function Reader({ item, onClose }: { item: NewsItem; onClose: () => void }) {
+export function NewsReader({ item, onClose }: { item: NewsItem; onClose: () => void }) {
   const tour = item.tourId ? getTour(item.tourId) : undefined;
 
   useEffect(() => {
@@ -152,7 +152,7 @@ export function NewsPage() {
         </AnimatePresence>
       </motion.div>
 
-      <AnimatePresence>{open ? <Reader item={open} onClose={() => setOpen(null)} /> : null}</AnimatePresence>
+      <AnimatePresence>{open ? <NewsReader item={open} onClose={() => setOpen(null)} /> : null}</AnimatePresence>
     </div>
   );
 }

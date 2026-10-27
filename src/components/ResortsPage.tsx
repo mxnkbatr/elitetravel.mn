@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 /** Where travellers actually stay, taken from the tour itineraries. */
-const stays = [
+export const stays = [
   {
     name: "Timton Fuhe Hotel",
     place: "Саняа, Хайнань",

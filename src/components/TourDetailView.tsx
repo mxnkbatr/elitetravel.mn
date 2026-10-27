@@ -1,12 +1,13 @@
 "use client";
 
 import { BookingPlanner } from "@/components/BookingPlanner";
-import { SaveButton } from "@/components/SaveButton";
+import { GalleryLightbox } from "@/components/GalleryLightbox";
+import { TourCard } from "@/components/TourCard";
+import { TourHero } from "@/components/TourHero";
 import { ItineraryStory } from "@/components/ItineraryStory";
 import { BookingSheet, TourTabs } from "@/components/TourMobile";
 import { formatPrice, isBookable, relatedTours, type ItineraryDay, type Tour } from "@/data/tours";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -14,12 +15,6 @@ export function TourDetailView({ tour }: { tour: Tour }) {
   const related = relatedTours(tour.id, 3);
   const [sheetOpen, setSheetOpen] = useState(false);
   const bookable = isBookable(tour);
-  const facts = [
-    { label: "Үргэлжлэх", value: tour.duration },
-    { label: "Огноо", value: tour.dates ?? "Холбогдоно уу" },
-    { label: "Байр", value: tour.stay ?? "—" },
-    { label: "Гарц", value: tour.departure ?? "Улаанбаатар" },
-  ];
 
   return (
     <div className="relative w-full max-w-[100vw] overflow-x-clip pb-16 sm:pb-20">
@@ -32,76 +27,30 @@ export function TourDetailView({ tour }: { tour: Tour }) {
           Аяллууд руу буцах
         </Link>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="epic-card overflow-hidden"
-        >
-          <div className="relative aspect-[4/5] w-full max-h-[56svh] min-h-[240px] sm:aspect-[21/9] sm:max-h-none">
-            <SaveButton tourId={tour.id} className="absolute right-4 top-4 z-10 size-11" />
-            <Image
-              src={tour.image}
-              alt={tour.title}
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width:640px) 100vw, 1152px"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-8">
-              <div className="flex flex-wrap gap-2">
-                {tour.status === "ended" ? (
-                  <span className="rounded-full bg-white/92 px-2.5 py-1 text-xs font-semibold text-ink">
-                    Дууссан аялал
-                  </span>
-                ) : null}
-                {tour.tag === "hot" ? (
-                  <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-white">
-                    Эрэлттэй
-                  </span>
-                ) : null}
-                {tour.tag === "soon" ? (
-                  <span className="rounded-full bg-ink/80 px-2.5 py-1 text-xs font-semibold text-white">
-                    Удахгүй
-                  </span>
-                ) : null}
-                {tour.discount ? (
-                  <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-white">
-                    {tour.discount}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#7ef0e0]">
-                {tour.destination}
-              </p>
-              <h1 className="mt-1 max-w-3xl font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-5xl">
-                {tour.title}
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-white/80 sm:text-base">{tour.description}</p>
-            </div>
-          </div>
-        </motion.div>
+        <TourHero tour={tour} onBook={() => setSheetOpen(true)} />
 
         {bookable ? <TourTabs onPrice={() => setSheetOpen(true)} /> : null}
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="min-w-0 space-y-8">
-            <section id="overview">
+            <section id="overview" className="scroll-mt-24">
               <div className="epic-rule mb-4" />
-              <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Танилцуулга</h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">{tour.story}</p>
-            </section>
-
-            <section>
-              <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Онцлох</h2>
-              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                {tour.highlights.map((h) => (
-                  <li
+              <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Аяллын онцлох</h2>
+              <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                {tour.highlights.map((h, i) => (
+                  <motion.li
                     key={h}
-                    className="rounded-2xl border border-[var(--line)] bg-bg-elevated px-4 py-3 text-sm text-foam"
+                    initial={{ opacity: 0, y: 14 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.06, duration: 0.5 }}
+                    className="group flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-bg-elevated p-3.5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow)]"
                   >
-                    {h}
-                  </li>
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/10 font-num text-sm text-accent transition group-hover:bg-accent group-hover:text-white">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-[0.92rem] font-medium leading-snug text-foam">{h}</span>
+                  </motion.li>
                 ))}
               </ul>
             </section>
@@ -109,22 +58,7 @@ export function TourDetailView({ tour }: { tour: Tour }) {
             {tour.gallery.length ? (
               <section>
                 <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Зургийн цомог</h2>
-                <div className="hide-scrollbar -mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
-                  {tour.gallery.map((src, i) => (
-                    <div
-                      key={src}
-                      className="relative aspect-[4/5] w-[72vw] shrink-0 snap-start overflow-hidden rounded-[1.1rem] sm:aspect-[4/3] sm:w-auto"
-                    >
-                      <Image
-                        src={src}
-                        alt={`${tour.title} — зураг ${i + 1}`}
-                        fill
-                        className="object-cover transition duration-700 hover:scale-105"
-                        sizes="(max-width:640px) 72vw, 33vw"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <GalleryLightbox images={tour.gallery} title={tour.title} />
               </section>
             ) : null}
 
@@ -197,15 +131,6 @@ export function TourDetailView({ tour }: { tour: Tour }) {
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-28 lg:self-start">
-            <div className="grid grid-cols-2 gap-2">
-              {facts.map((f) => (
-                <div key={f.label} className="rounded-xl border border-[var(--line)] bg-bg-elevated px-3 py-2.5">
-                  <p className="text-[0.62rem] uppercase tracking-[0.12em] text-muted">{f.label}</p>
-                  <p className="mt-0.5 text-sm font-medium text-foam">{f.value}</p>
-                </div>
-              ))}
-            </div>
-
             {bookable ? (
               <div className="hidden sm:block">
                 <BookingPlanner tour={tour} />
@@ -243,26 +168,9 @@ export function TourDetailView({ tour }: { tour: Tour }) {
           <section className="mt-14">
             <div className="epic-rule mb-4" />
             <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Төстэй аяллууд</h2>
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <div className="hide-scrollbar -mx-4 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
               {related.map((t) => (
-                <Link key={t.id} href={`/tours/${t.id}`} className="epic-card group block">
-                  <div className="relative aspect-[16/11]">
-                    <Image
-                      src={t.image}
-                      alt={t.title}
-                      fill
-                      className="object-cover transition duration-500 group-hover:scale-105"
-                      sizes="33vw"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-accent">
-                      {t.destination}
-                    </p>
-                    <h3 className="mt-1 font-display text-lg font-semibold leading-snug">{t.title}</h3>
-                    <p className="mt-2 text-sm font-semibold text-accent">{formatPrice(t.price)}</p>
-                  </div>
-                </Link>
+                <TourCard key={t.id} tour={t} />
               ))}
             </div>
           </section>

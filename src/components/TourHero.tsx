@@ -1,0 +1,183 @@
+"use client";
+
+import { SaveButton } from "@/components/SaveButton";
+import { formatPrice, isBookable, type Tour } from "@/data/tours";
+import { scrollToY } from "@/lib/scroll";
+import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
+import Image from "next/image";
+import Link from "next/link";
+import { useState, type MouseEvent } from "react";
+
+const ease = [0.22, 1, 0.36, 1] as const;
+
+function ShareButton({ tour, className = "" }: { tour: Tour; className?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function share() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: tour.title, text: `${tour.title} · ${formatPrice(tour.price)}`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* user dismissed the share sheet */
+    }
+  }
+
+  return (
+    <button type="button" onClick={share} aria-label="Хуваалцах" className={`relative ${className}`}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 12v6.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <AnimatePresence>
+        {copied ? (
+          <motion.span
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[0.68rem] font-semibold text-white"
+          >
+            Холбоос хуулагдлаа
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </button>
+  );
+}
+
+/**
+ * Tour page opener: details and price on the left, the full (uncropped) poster on the
+ * right tilting toward the cursor, over a soft glow sampled from the poster itself.
+ */
+export function TourHero({ tour, onBook }: { tour: Tour; onBook: () => void }) {
+  const rx = useSpring(useMotionValue(0), { stiffness: 160, damping: 18 });
+  const ry = useSpring(useMotionValue(0), { stiffness: 160, damping: 18 });
+  const bookable = isBookable(tour);
+
+  function tilt(e: MouseEvent<HTMLDivElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    ry.set(((e.clientX - r.left) / r.width - 0.5) * 12);
+    rx.set(-((e.clientY - r.top) / r.height - 0.5) * 12);
+  }
+
+  function book() {
+    const el = document.getElementById("book");
+    // Desktop scrolls to the sidebar planner; phones (planner hidden) open the sheet
+    if (el && el.offsetParent) scrollToY(el.getBoundingClientRect().top + window.scrollY - 110);
+    else onBook();
+  }
+
+  const chips = [
+    tour.dates && { icon: "🗓", text: tour.dates },
+    { icon: "⏱", text: tour.duration },
+    tour.stay && { icon: "🏨", text: tour.stay },
+    { icon: "✈", text: `${tour.departure ?? "Улаанбаатар"}-аас` },
+  ].filter(Boolean) as { icon: string; text: string }[];
+
+  return (
+    <section className="relative isolate">
+      {/* Ambient glow from the poster */}
+      <div className="pointer-events-none absolute -inset-x-10 -top-24 bottom-0 -z-10 overflow-hidden opacity-40 [mask-image:linear-gradient(180deg,#000_30%,transparent)]">
+        <Image src={tour.image} alt="" fill className="scale-125 object-cover blur-3xl saturate-150" sizes="50vw" />
+      </div>
+
+      <div className="grid items-center gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
+        {/* Poster */}
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.9, ease }}
+          onMouseMove={tilt}
+          onMouseLeave={() => {
+            rx.set(0);
+            ry.set(0);
+          }}
+          className="order-1 [perspective:1200px] lg:order-2"
+        >
+          <motion.div
+            style={{ rotateX: rx, rotateY: ry }}
+            className="relative mx-auto aspect-[4/3] w-full overflow-hidden rounded-[1.75rem] shadow-[0_40px_90px_rgba(6,42,42,0.35)] sm:max-w-xl lg:aspect-[4/3.1]"
+          >
+            <Image src={tour.image} alt={tour.title} fill priority className="object-cover" sizes="(max-width:1024px) 100vw, 560px" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/0 to-white/15" />
+            <div className="absolute right-3 top-3 flex gap-2">
+              <ShareButton tour={tour} className="grid size-10 place-items-center rounded-full bg-white/90 text-ink shadow-sm backdrop-blur-md" />
+              <SaveButton tourId={tour.id} className="size-10" />
+            </div>
+            {tour.discount ? (
+              <span className="absolute left-3 top-3 rounded-full bg-accent px-3 py-1.5 text-xs font-bold text-white shadow">{tour.discount}</span>
+            ) : null}
+          </motion.div>
+        </motion.div>
+
+        {/* Details */}
+        <div className="order-2 lg:order-1">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="flex flex-wrap items-center gap-2">
+            <Link href={`/tours?dest=${tour.destinationKey}`} className="rounded-full bg-accent/10 px-3 py-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-accent">
+              {tour.destination}
+            </Link>
+            {tour.tag === "hot" ? <span className="rounded-full bg-[#e8b86d]/25 px-3 py-1 text-[0.7rem] font-bold text-[#8a5a12]">🔥 Эрэлттэй</span> : null}
+            {tour.status === "ended" ? <span className="rounded-full bg-ink px-3 py-1 text-[0.7rem] font-bold text-white">Дууссан аялал</span> : null}
+            {tour.tag === "soon" ? <span className="rounded-full bg-ink px-3 py-1 text-[0.7rem] font-bold text-white">Тун удахгүй</span> : null}
+          </motion.div>
+
+          <h1 className="mt-4 overflow-hidden font-display text-[clamp(2.3rem,5vw,4.2rem)] font-semibold leading-[0.98] tracking-[-0.04em]">
+            <motion.span className="block" initial={{ y: "100%" }} animate={{ y: 0 }} transition={{ duration: 0.9, delay: 0.1, ease }}>
+              {tour.title}
+            </motion.span>
+          </h1>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="mt-3 max-w-lg text-[0.95rem] leading-relaxed text-muted">
+            {tour.story}
+          </motion.p>
+
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {chips.map((c, i) => (
+              <motion.li
+                key={c.text}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + i * 0.06 }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-bg-elevated/80 px-3 py-1.5 text-[0.8rem] backdrop-blur"
+              >
+                <span aria-hidden>{c.icon}</span>
+                {c.text}
+              </motion.li>
+            ))}
+          </ul>
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.6, ease }}
+            className="mt-6 flex flex-wrap items-end gap-x-6 gap-y-4"
+          >
+            <div>
+              <p className="text-xs text-muted">Үнэ / хүн</p>
+              <div className="flex items-baseline gap-2">
+                <span className="font-num text-[2.2rem] leading-none text-accent">{formatPrice(tour.price)}</span>
+                {tour.oldPrice ? <span className="text-sm text-muted line-through">{formatPrice(tour.oldPrice)}</span> : null}
+              </div>
+            </div>
+            {bookable ? (
+              <button
+                type="button"
+                onClick={book}
+                className="btn-shine inline-flex h-13 items-center gap-2 rounded-full bg-ink px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 active:scale-95"
+              >
+                Захиалах <span aria-hidden>→</span>
+              </button>
+            ) : (
+              <a href="tel:+97690031771" className="inline-flex h-13 items-center rounded-full bg-ink px-7 text-sm font-semibold text-white">
+                Лавлах · +976 9003 1771
+              </a>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}

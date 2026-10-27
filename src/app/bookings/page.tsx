@@ -1,3 +1,4 @@
+import { MobileBookings } from "@/components/MobileBookings";
 import { BookingsPage } from "@/components/BookingsPage";
 import { PageHeader } from "@/components/PageHeader";
 import { Section } from "@/components/Section";
@@ -10,7 +11,11 @@ export const metadata: Metadata = {
 
 export default function BookingsRoute() {
   return (
-    <Section className="page-pad-top space-y-8 pb-16">
+    <>
+      <div className="sm:hidden">
+        <MobileBookings />
+      </div>
+    <Section className="hidden sm:block page-pad-top space-y-8 pb-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <PageHeader
           eyebrow="My trips"
@@ -22,5 +27,6 @@ export default function BookingsRoute() {
         </div>
       </div>
     </Section>
+    </>
   );
 }

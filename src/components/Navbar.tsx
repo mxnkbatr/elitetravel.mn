@@ -1,12 +1,13 @@
 "use client";
 
 import { EliteLogo } from "@/components/EliteLogo";
+import { MegaMenu } from "@/components/MegaMenu";
 import { openSearch } from "@/components/SearchOverlay";
 import { useTraveller } from "@/lib/traveller-store";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const links = [
   { href: "/tours", label: "Аяллууд" },
@@ -22,7 +23,10 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Floating glass capsule: tucks away while scrolling down, returns on scroll up. */
+/**
+ * Floating glass capsule. Desktop: shrinks into a compact pill once you scroll and
+ * opens a destinations mega menu from "Аяллууд". Phone: tucks away on scroll down.
+ */
 export function Navbar() {
   const pathname = usePathname();
   const { bookings, saved } = useTraveller();
@@ -32,10 +36,25 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
+  const [compact, setCompact] = useState(false);
+  const [mega, setMega] = useState(false);
+  const megaTimer = useRef(0);
+
+  const openMega = () => {
+    window.clearTimeout(megaTimer.current);
+    setMega(true);
+  };
+  const closeMegaSoon = () => {
+    window.clearTimeout(megaTimer.current);
+    megaTimer.current = window.setTimeout(() => setMega(false), 160);
+  };
 
   const [isPhone, setIsPhone] = useState(false);
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+    setMega(false);
+  }, [pathname]);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
     const sync = () => setIsPhone(mq.matches);
@@ -47,8 +66,10 @@ export function Navbar() {
   useMotionValueEvent(scrollY, "change", (y) => {
     const prev = scrollY.getPrevious() ?? 0;
     setScrolled(y > 24);
-    setHidden(y > 160 && y > prev + 4);
+    setCompact(!isPhone && y > 120);
+    setHidden(isPhone && y > 160 && y > prev + 4);
     if (y < prev - 4) setHidden(false);
+    if (Math.abs(y - prev) > 40) setMega(false);
   });
 
   // Light-on-dark over the home hero and over the open menu sheet
@@ -64,24 +85,38 @@ export function Navbar() {
           pathname === "/map" ? "max-sm:hidden" : ""
         }`}
       >
-        <div
-          className={`mx-auto flex h-[3.6rem] max-w-6xl items-center justify-between gap-3 rounded-full border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-500 sm:pl-5 ${
+        <motion.div
+          initial={false}
+          animate={{ maxWidth: compact ? 880 : 1152, height: compact ? 52 : 57.6 }}
+          transition={{ type: "spring", stiffness: 260, damping: 32 }}
+          className={`mx-auto flex items-center justify-between gap-3 rounded-full border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-500 sm:pl-5 ${
             onDark
               ? "border-white/15 bg-white/[0.07] backdrop-blur-md"
               : "border-[var(--line)] bg-bg-elevated/85 shadow-[0_10px_40px_rgba(6,42,42,0.10)] backdrop-blur-xl"
           }`}
         >
-          <EliteLogo size="sm" light={onDark} />
+          <EliteLogo size="sm" light={onDark} showWordmark={!compact} />
 
-          <nav className="hidden items-center lg:flex" onMouseLeave={() => setHover(null)}>
+          <nav
+            className="hidden items-center lg:flex"
+            onMouseLeave={() => {
+              setHover(null);
+              closeMegaSoon();
+            }}
+          >
             {links.map((l) => {
               const active = isActive(pathname, l.href);
               return (
                 <Link
                   key={l.href}
                   href={l.href}
-                  onMouseEnter={() => setHover(l.href)}
-                  className={`relative rounded-full px-4 py-2 text-[0.84rem] font-medium transition-colors ${
+                  onMouseEnter={() => {
+                    setHover(l.href);
+                    if (l.href === "/tours") openMega();
+                    else closeMegaSoon();
+                  }}
+                  aria-expanded={l.href === "/tours" ? mega : undefined}
+                  className={`relative flex items-center gap-1 rounded-full py-2 font-medium transition-all ${compact ? "px-3 text-[0.8rem]" : "px-4 text-[0.84rem]"} ${
                     onDark
                       ? active || hover === l.href
                         ? "text-white"
@@ -99,6 +134,11 @@ export function Navbar() {
                     />
                   ) : null}
                   <span className="relative">{l.label}</span>
+                  {l.href === "/tours" ? (
+                    <motion.svg animate={{ rotate: mega ? 180 : 0 }} width="10" height="10" viewBox="0 0 10 10" className="relative opacity-60" aria-hidden>
+                      <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </motion.svg>
+                  ) : null}
                   {active ? (
                     <motion.span
                       layoutId="nav-dot"
@@ -143,11 +183,11 @@ export function Navbar() {
 
             <Link
               href="/bookings"
-              className={`btn-shine hidden h-10 items-center gap-2 rounded-full pl-4 pr-1.5 text-[0.8rem] font-semibold transition hover:-translate-y-0.5 sm:inline-flex ${
+              className={`btn-shine hidden h-10 items-center gap-2 rounded-full pr-1.5 text-[0.8rem] font-semibold transition hover:-translate-y-0.5 sm:inline-flex ${compact ? "pl-1.5" : "pl-4"} ${
                 onDark ? "bg-white text-ink" : "bg-ink text-white"
               }`}
             >
-              Миний захиалга
+              <span className={compact ? "sr-only" : ""}>Миний захиалга</span>
               <motion.span
                 key={tripCount}
                 initial={{ scale: 0.6 }}
@@ -181,7 +221,24 @@ export function Navbar() {
               </span>
             </button>
           </div>
-        </div>
+        </motion.div>
+
+        <AnimatePresence>
+          {mega ? (
+            <motion.div
+              key="mega"
+              onMouseEnter={openMega}
+              onMouseLeave={closeMegaSoon}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.99, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              className="absolute left-1/2 top-full mt-2 hidden w-[min(68rem,calc(100vw-2.5rem))] -translate-x-1/2 origin-top overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-bg-elevated/95 text-foam shadow-[0_30px_80px_rgba(6,42,42,0.18)] backdrop-blur-xl lg:block"
+            >
+              <MegaMenu onNavigate={() => setMega(false)} />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </motion.header>
 
       <AnimatePresence>
