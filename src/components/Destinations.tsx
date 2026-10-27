@@ -62,7 +62,7 @@ export function Destinations({ showHeader = true }: DestinationsProps) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/30 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-                  <div className="rounded-2xl glass-strong p-4">
+                  <div className="rounded-2xl border border-white/10 bg-[#10241f]/95 p-4">
                     <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-accent">
                       {dest.en}
                     </p>

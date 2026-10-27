@@ -1,25 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  /* Forest mint + iOS 26 Liquid Glass */
-  --bg: #0c1f1c;
-  --bg-elevated: #122a26;
-  --surface: #163530;
+  /* Clean iOS 26 app — solid surfaces, cool mint */
+  --bg: #0a1916;
+  --bg-elevated: #10241f;
+  --surface: #14302a;
+  --surface-2: #1a3a33;
   --accent: #5eebc3;
   --accent-soft: #9af5db;
   --accent-deep: #2bb896;
-  --foam: #f4fffb;
-  --muted: rgba(244, 255, 251, 0.68);
-  --glass-fill: rgba(18, 42, 38, 0.82);
-  --glass-fill-strong: rgba(12, 31, 28, 0.92);
-  --glass-tint: rgba(12, 31, 28, 0.88);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-border-soft: rgba(255, 255, 255, 0.08);
-  --glass-shine: rgba(255, 255, 255, 0.18);
-  --glass-blur: 12px;
-  --glass-sat: 120%;
-  --shadow-float: 0 10px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.28);
+  --foam: #f2fffb;
+  --muted: rgba(242, 255, 251, 0.62);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --shadow-float: 0 12px 36px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.28);
+  --radius-card: 1.25rem;
+  --radius-ctl: 999px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --dock-h: calc(5.75rem + env(safe-area-inset-bottom, 0px));
@@ -45,7 +42,7 @@
 
 @utility font-display {
   font-family: var(--font-geologica), "Golos Text", system-ui, sans-serif;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
@@ -67,8 +64,8 @@ body {
   color: var(--foam);
   font-family: var(--font-golos), system-ui, sans-serif;
   font-weight: 400;
-  letter-spacing: 0.005em;
-  line-height: 1.55;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
   overflow-x: hidden;
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
@@ -88,28 +85,27 @@ p {
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--accent) 55%, transparent);
+  background: color-mix(in oklab, var(--accent) 50%, transparent);
   color: var(--bg);
 }
 
-/* ——— Soft elevated surfaces (less glass) ——— */
+/* Solid app surfaces — keep class names for compatibility */
 .glass,
-.glass-strong {
-  position: relative;
-  isolation: isolate;
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  border: 1px solid var(--glass-border);
+.glass-strong,
+.liquid-sheet,
+.ios-surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-strong,
+.liquid-sheet {
+  background: var(--bg-elevated);
+  border-color: var(--line-strong);
   box-shadow: var(--shadow-soft);
-}
-
-.glass {
-  background: var(--glass-fill);
-}
-
-.glass-strong {
-  background: var(--glass-fill-strong);
-  box-shadow: var(--shadow-float);
 }
 
 .glass::before,
@@ -121,36 +117,25 @@ p {
   box-shadow: var(--shadow-float);
 }
 
-.ios-surface {
-  background: rgba(255, 255, 255, 0.055);
-  border: 0.5px solid rgba(255, 255, 255, 0.09);
-}
-
 .ios-grouped {
-  background: rgba(255, 255, 255, 0.06);
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
 }
 
 .ios-row + .ios-row {
-  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
 }
 
 .ios-hairline {
-  height: 0.5px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 1px;
+  background: var(--line);
 }
 
 .glass-chip {
-  background: rgba(18, 42, 38, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.liquid-sheet {
-  background: #122a26;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: var(--shadow-soft);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
 }
 
 .ambient {
@@ -159,10 +144,8 @@ p {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 90% 55% at 8% -8%, rgba(94, 235, 195, 0.2), transparent 58%),
-    radial-gradient(ellipse 70% 45% at 92% 6%, rgba(154, 245, 219, 0.1), transparent 52%),
-    radial-gradient(ellipse 55% 40% at 50% 110%, rgba(43, 184, 150, 0.14), transparent 55%),
-    radial-gradient(ellipse 40% 30% at 70% 40%, rgba(255, 255, 255, 0.03), transparent 60%),
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(94, 235, 195, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 20%, rgba(43, 184, 150, 0.06), transparent 50%),
     var(--bg);
 }
 
@@ -173,7 +156,7 @@ p {
 }
 
 .page-pad-top {
-  padding-top: calc(6.25rem + env(safe-area-inset-top, 0px));
+  padding-top: calc(6rem + env(safe-area-inset-top, 0px));
 }
 
 .snap-x-mandatory {
@@ -206,31 +189,19 @@ p {
   background: linear-gradient(
     110deg,
     var(--accent) 0%,
-    var(--accent-soft) 40%,
-    var(--accent) 80%
+    var(--accent-soft) 45%,
+    var(--accent) 90%
   );
   background-size: 200% 100%;
-  animation: shimmer 4.5s linear infinite;
-  box-shadow:
-    0 8px 28px rgba(94, 235, 195, 0.28),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.45);
+  animation: shimmer 5s linear infinite;
+  box-shadow: 0 8px 24px rgba(94, 235, 195, 0.28);
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
-
   .accent-shimmer {
     animation: none;
-  }
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass {
-    background: rgba(22, 53, 48, 0.88);
-  }
-  .glass-strong {
-    background: rgba(12, 31, 28, 0.94);
   }
 }

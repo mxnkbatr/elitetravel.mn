@@ -22,14 +22,13 @@ export function Navbar() {
   const { scrollY } = useScroll();
   const backgroundColor = useTransform(
     scrollY,
-    [0, 70],
-    ["rgba(12,31,28,0)", "rgba(12,31,28,0.94)"],
+    [0, 50],
+    ["rgba(10,25,22,0)", "rgba(10,25,22,0.97)"],
   );
-  const backdropFilter = useTransform(scrollY, [0, 70], ["blur(0px)", "blur(8px)"]);
   const borderColor = useTransform(
     scrollY,
-    [0, 70],
-    ["rgba(255,255,255,0)", "rgba(255,255,255,0.06)"],
+    [0, 50],
+    ["rgba(255,255,255,0)", "rgba(255,255,255,0.08)"],
   );
 
   useEffect(() => {
@@ -48,7 +47,7 @@ export function Navbar() {
   return (
     <>
       <motion.header
-        style={{ backgroundColor, backdropFilter, borderColor }}
+        style={{ backgroundColor, borderColor }}
         className="fixed inset-x-0 top-0 z-[60] border-b pt-[env(safe-area-inset-top,0px)]"
       >
         <div className="relative mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -71,7 +70,7 @@ export function Navbar() {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-0.5 rounded-full border border-white/10 bg-[#122a26] px-1 py-1 lg:flex">
+          <nav className="hidden items-center gap-0.5 rounded-full border border-white/10 bg-[#10241f] px-1 py-1 lg:flex">
             {links
               .filter((l) => l.href !== "/profile")
               .map((link) => {
@@ -122,7 +121,7 @@ export function Navbar() {
               aria-label={open ? "Цэс хаах" : "Цэс"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#122a26] lg:hidden"
+              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#10241f] lg:hidden"
             >
               <span className="flex w-3.5 flex-col gap-[3.5px]">
                 <span
@@ -162,7 +161,7 @@ export function Navbar() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top,0px))] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#122a26] shadow-[0_20px_50px_rgba(0,0,0,0.55)]"
+              className="absolute inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top,0px))] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#10241f] shadow-[0_20px_50px_rgba(0,0,0,0.55)]"
             >
               <div className="border-b border-white/8 px-4 py-3">
                 <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-accent">

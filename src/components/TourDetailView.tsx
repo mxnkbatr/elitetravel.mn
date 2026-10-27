@@ -84,7 +84,7 @@ export function TourDetailView({ tour }: { tour: Tour }) {
           {facts.map((f) => (
             <div
               key={f.label}
-              className="min-w-0 rounded-[14px] border border-white/10 bg-[#122a26] px-2.5 py-2.5 sm:rounded-2xl sm:px-3.5 sm:py-3"
+              className="min-w-0 rounded-[14px] border border-white/10 bg-[#10241f] px-2.5 py-2.5 sm:rounded-2xl sm:px-3.5 sm:py-3"
             >
               <p className="text-[0.58rem] uppercase tracking-[0.12em] text-foam/45 sm:text-[0.65rem] sm:tracking-[0.14em]">
                 {f.label}
@@ -303,7 +303,7 @@ export function TourDetailView({ tour }: { tour: Tour }) {
 
       {/* Mobile sticky buy bar — clears dock */}
       <div className="fixed inset-x-0 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-[55] px-3 sm:hidden">
-        <div className="mx-auto flex max-w-md items-center gap-2.5 rounded-[1.35rem] border border-white/10 bg-[#0f2420]/96 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+        <div className="mx-auto flex max-w-md items-center gap-2.5 rounded-[1.35rem] border border-white/10 bg-[#10241f] p-2 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
           <div className="min-w-0 flex-1 pl-2.5">
             <p className="text-[0.58rem] uppercase tracking-[0.1em] text-foam/45">Үнэ</p>
             <p className="truncate font-display text-[1.05rem] font-semibold leading-tight text-accent">

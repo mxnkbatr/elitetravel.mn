@@ -11,7 +11,7 @@ export default function HomePage() {
       <Section className="space-y-14 pb-6 pt-2 sm:space-y-20 sm:pb-10 sm:pt-4">
         <Destinations />
         <Tours limit={3} />
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 rounded-[28px] glass-strong p-6 sm:flex-row sm:items-center sm:p-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 rounded-[1.35rem] border border-white/10 bg-[#10241f] p-5 sm:flex-row sm:items-center sm:p-8">
           <div>
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-accent">
               Next step
