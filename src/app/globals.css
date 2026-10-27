@@ -1,26 +1,236 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Forest mint + iOS 26 Liquid Glass */
+  --bg: #0c1f1c;
+  --bg-elevated: #122a26;
+  --surface: #163530;
+  --accent: #5eebc3;
+  --accent-soft: #9af5db;
+  --accent-deep: #2bb896;
+  --foam: #f4fffb;
+  --muted: rgba(244, 255, 251, 0.68);
+  --glass-fill: rgba(18, 42, 38, 0.82);
+  --glass-fill-strong: rgba(12, 31, 28, 0.92);
+  --glass-tint: rgba(12, 31, 28, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-shine: rgba(255, 255, 255, 0.18);
+  --glass-blur: 12px;
+  --glass-sat: 120%;
+  --shadow-float: 0 10px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.28);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --dock-h: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  --nav-h: calc(4.25rem + env(safe-area-inset-top, 0px));
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-foam: var(--foam);
+  --color-muted: var(--muted);
+  --color-mint: var(--accent);
+  --color-mint-soft: var(--accent-soft);
+  --color-mint-deep: var(--accent-deep);
+  --color-forest: var(--surface);
+  --font-display: var(--font-geologica);
+  --font-sans: var(--font-golos);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@utility font-display {
+  font-family: var(--font-geologica), "Golos Text", system-ui, sans-serif;
+  letter-spacing: -0.025em;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--foam);
+  font-family: var(--font-golos), system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.55;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+  color: var(--bg);
+}
+
+/* ——— Soft elevated surfaces (less glass) ——— */
+.glass,
+.glass-strong {
+  position: relative;
+  isolation: isolate;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.glass {
+  background: var(--glass-fill);
+}
+
+.glass-strong {
+  background: var(--glass-fill-strong);
+  box-shadow: var(--shadow-float);
+}
+
+.glass::before,
+.glass-strong::before {
+  display: none;
+}
+
+.glass-float {
+  box-shadow: var(--shadow-float);
+}
+
+.ios-surface {
+  background: rgba(255, 255, 255, 0.055);
+  border: 0.5px solid rgba(255, 255, 255, 0.09);
+}
+
+.ios-grouped {
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ios-row + .ios-row {
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+.ios-hairline {
+  height: 0.5px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.glass-chip {
+  background: rgba(18, 42, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.liquid-sheet {
+  background: #122a26;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-soft);
+}
+
+.ambient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -8%, rgba(94, 235, 195, 0.2), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 92% 6%, rgba(154, 245, 219, 0.1), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 50% 110%, rgba(43, 184, 150, 0.14), transparent 55%),
+    radial-gradient(ellipse 40% 30% at 70% 40%, rgba(255, 255, 255, 0.03), transparent 60%),
+    var(--bg);
+}
+
+.app-main {
+  position: relative;
+  z-index: 10;
+  min-height: 100dvh;
+}
+
+.page-pad-top {
+  padding-top: calc(6.25rem + env(safe-area-inset-top, 0px));
+}
+
+.snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.accent-shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--accent) 0%,
+    var(--accent-soft) 40%,
+    var(--accent) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 4.5s linear infinite;
+  box-shadow:
+    0 8px 28px rgba(94, 235, 195, 0.28),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .accent-shimmer {
+    animation: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgba(22, 53, 48, 0.88);
+  }
+  .glass-strong {
+    background: rgba(12, 31, 28, 0.94);
+  }
 }
