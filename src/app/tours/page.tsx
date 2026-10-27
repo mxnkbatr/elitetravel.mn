@@ -17,7 +17,7 @@ export default async function ToursPage({ searchParams }: ToursPageProps) {
 
   return (
     <Section className="page-pad-top space-y-6 pb-10">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <PageHeader
           eyebrow="Tours"
           title="Эрэлттэй аяллууд"

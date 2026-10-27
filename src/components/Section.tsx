@@ -1,13 +1,11 @@
 import type { ReactNode } from "react";
 
-type SectionProps = {
+export function Section({
+  children,
+  className = "",
+}: {
   children: ReactNode;
   className?: string;
-};
-
-/** Consistent horizontal + vertical rhythm for page sections */
-export function Section({ children, className = "" }: SectionProps) {
-  return (
-    <div className={`px-4 sm:px-6 ${className}`.trim()}>{children}</div>
-  );
+}) {
+  return <section className={`relative z-10 ${className}`}>{children}</section>;
 }

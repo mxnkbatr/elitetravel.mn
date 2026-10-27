@@ -3,34 +3,27 @@ import { getTour, tours } from "@/data/tours";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-type TourDetailProps = {
+type Props = {
   params: Promise<{ id: string }>;
 };
 
 export function generateStaticParams() {
-  return tours.map((tour) => ({ id: tour.id }));
+  return tours.map((t) => ({ id: t.id }));
 }
 
-export async function generateMetadata({
-  params,
-}: TourDetailProps): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const tour = getTour(id);
   if (!tour) return { title: "Аялал" };
   return {
     title: tour.title,
-    description: tour.story,
+    description: tour.description,
   };
 }
 
-export default async function TourDetailPage({ params }: TourDetailProps) {
+export default async function TourDetailPage({ params }: Props) {
   const { id } = await params;
   const tour = getTour(id);
   if (!tour) notFound();
-
-  return (
-    <div className="page-pad-top">
-      <TourDetailView tour={tour} />
-    </div>
-  );
+  return <TourDetailView tour={tour} />;
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import { filterChipClass } from "@/lib/ui";
+import { EliteLogo } from "@/components/EliteLogo";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -13,202 +12,148 @@ const links = [
   { href: "/tours", label: "Аяллууд" },
   { href: "/resorts", label: "Амралт" },
   { href: "/about", label: "Бидний тухай" },
-  { href: "/profile", label: "Профайл" },
+  { href: "/contact", label: "Холбоо" },
 ];
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { scrollY } = useScroll();
-  const backgroundColor = useTransform(
+  const bg = useTransform(scrollY, [0, 40], ["rgba(238,245,242,0)", "rgba(238,245,242,0.96)"]);
+  const border = useTransform(
     scrollY,
-    [0, 50],
-    ["rgba(10,25,22,0)", "rgba(10,25,22,0.97)"],
+    [0, 40],
+    ["rgba(10,47,43,0)", "rgba(10,47,43,0.1)"],
   );
-  const borderColor = useTransform(
-    scrollY,
-    [0, 50],
-    ["rgba(255,255,255,0)", "rgba(255,255,255,0.08)"],
-  );
+  const isHome = pathname === "/";
+  const [scrolled, setScrolled] = useState(false);
 
+  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+    const unsub = scrollY.on("change", (v) => setScrolled(v > 24));
+    return () => unsub();
+  }, [scrollY]);
 
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+  const lightLogo = isHome && !scrolled && !open;
 
   return (
     <>
       <motion.header
-        style={{ backgroundColor, borderColor }}
+        style={{ backgroundColor: bg, borderColor: border }}
         className="fixed inset-x-0 top-0 z-[60] border-b pt-[env(safe-area-inset-top,0px)]"
       >
-        <div className="relative mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            <Image
-              src="/elite-logo.png"
-              alt="Elite Travel Mongolia"
-              width={44}
-              height={44}
-              className="size-10 shrink-0 rounded-full object-cover ring-1 ring-white/15 sm:size-11"
-              priority
-            />
-            <span className="hidden min-w-0 flex-col leading-tight sm:flex">
-              <span className="font-display text-[0.88rem] font-semibold tracking-[0.04em] text-foam">
-                Elite Travel Mongolia
-              </span>
-              <span className="text-[0.65rem] tracking-[0.02em] text-foam/55">
-                Explore. Dream. Discover.
-              </span>
-            </span>
-          </Link>
+        <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <EliteLogo size="md" light={lightLogo} />
 
-          <nav className="hidden items-center gap-0.5 rounded-full border border-white/10 bg-[#10241f] px-1 py-1 lg:flex">
-            {links
-              .filter((l) => l.href !== "/profile")
-              .map((link) => {
-                const active =
-                  link.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(link.href);
-                return (
+          <nav className="hidden items-center gap-7 md:flex">
+            {links.map((l, i) => {
+              const active =
+                l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+              return (
+                <motion.div
+                  key={l.href}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 * i + 0.15 }}
+                >
                   <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`rounded-full px-3.5 py-2 text-[0.84rem] tracking-[0.01em] transition ${
+                    href={l.href}
+                    className={`relative text-[0.84rem] tracking-[0.02em] transition ${
                       active
-                        ? "bg-accent font-semibold text-bg shadow-[0_8px_22px_rgba(94,235,195,0.4)]"
-                        : "text-foam/60 hover:bg-white/[0.06] hover:text-foam"
+                        ? "font-semibold text-accent"
+                        : lightLogo
+                          ? "text-white/80 hover:text-white"
+                          : "text-foam/70 hover:text-foam"
                     }`}
                   >
-                    {link.label}
+                    {l.label}
+                    {active ? (
+                      <motion.span
+                        layoutId="nav-underline"
+                        className="absolute -bottom-1 left-0 h-px w-full bg-gradient-to-r from-[#e8b86d] to-accent"
+                      />
+                    ) : null}
                   </Link>
-                );
-              })}
+                </motion.div>
+              );
+            })}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/tours"
-              className={`hidden md:inline-flex lg:hidden ${filterChipClass(pathname.startsWith("/tours"))}`}
-            >
-              Аяллууд
-            </Link>
-
-            <Link
-              href="/profile"
-              className="overflow-hidden rounded-full ring-1 ring-white/25"
-              aria-label="Профайл"
-            >
-              <Image
-                src="/elite-logo.png"
-                alt="Профайл"
-                width={36}
-                height={36}
-                className="size-9 object-cover sm:size-10"
+          <button
+            type="button"
+            aria-label="Цэс"
+            className={`grid size-10 place-items-center rounded-full border md:hidden ${
+              lightLogo
+                ? "border-white/30 bg-white/10 text-white"
+                : "border-[var(--line)] bg-bg-elevated text-foam"
+            }`}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className="flex w-3.5 flex-col gap-[3px]">
+              <span
+                className={`h-px transition ${open ? "translate-y-[4px] rotate-45" : ""} ${
+                  lightLogo ? "bg-white" : "bg-foam"
+                }`}
               />
-            </Link>
-
-            <button
-              type="button"
-              aria-label={open ? "Цэс хаах" : "Цэс"}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#10241f] lg:hidden"
-            >
-              <span className="flex w-3.5 flex-col gap-[3.5px]">
-                <span
-                  className={`h-[1.5px] rounded-full bg-foam transition ${open ? "translate-y-[5px] rotate-45" : ""}`}
-                />
-                <span
-                  className={`h-[1.5px] rounded-full bg-foam transition ${open ? "opacity-0" : ""}`}
-                />
-                <span
-                  className={`h-[1.5px] rounded-full bg-foam transition ${open ? "-translate-y-[5px] -rotate-45" : ""}`}
-                />
-              </span>
-            </button>
-          </div>
+              <span
+                className={`h-px transition ${open ? "opacity-0" : ""} ${
+                  lightLogo ? "bg-white" : "bg-foam"
+                }`}
+              />
+              <span
+                className={`h-px transition ${open ? "-translate-y-[4px] -rotate-45" : ""} ${
+                  lightLogo ? "bg-white" : "bg-foam"
+                }`}
+              />
+            </span>
+          </button>
         </div>
       </motion.header>
 
       <AnimatePresence>
         {open ? (
           <motion.div
-            key="menu"
-            className="fixed inset-0 z-[55] lg:hidden"
+            className="fixed inset-0 z-[55] md:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
           >
             <button
               type="button"
-              aria-label="Цэс хаах"
-              className="absolute inset-0 bg-black/45"
+              className="absolute inset-0 bg-ink/25"
+              aria-label="Хаах"
               onClick={() => setOpen(false)}
             />
-
-            <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top,0px))] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#10241f] shadow-[0_20px_50px_rgba(0,0,0,0.55)]"
+            <motion.nav
+              initial={{ y: -16, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -8, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="absolute inset-x-4 top-[calc(4.75rem+env(safe-area-inset-top))] overflow-hidden rounded-[1.25rem] border border-[var(--line)] bg-bg-elevated p-2 shadow-[var(--shadow)]"
             >
-              <div className="border-b border-white/8 px-4 py-3">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-accent">
-                  Menu
-                </p>
-                <p className="mt-0.5 text-sm text-foam/55">Elite Travel Mongolia</p>
-              </div>
-
-              <nav className="py-1">
-                {links.map((link, i) => {
-                  const active =
-                    link.href === "/"
-                      ? pathname === "/"
-                      : pathname.startsWith(link.href);
-                  return (
-                    <div key={link.href}>
-                      {i > 0 ? <div className="mx-4 h-px bg-white/8" /> : null}
-                      <Link
-                        href={link.href}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center justify-between px-4 py-3.5 text-[0.95rem] tracking-[0.01em] active:bg-white/[0.04] ${
-                          active ? "font-semibold text-accent" : "text-foam/90"
-                        }`}
-                      >
-                        <span>{link.label}</span>
-                        {active ? (
-                          <span className="grid size-6 place-items-center rounded-full bg-accent/15 text-[0.7rem] text-accent">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="text-foam/25">›</span>
-                        )}
-                      </Link>
-                    </div>
-                  );
-                })}
-              </nav>
-
-              <div className="border-t border-white/8 p-3">
-                <a
-                  href="tel:+97690031771"
-                  className="flex h-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-bg shadow-[0_8px_22px_rgba(94,235,195,0.35)] active:scale-[0.98]"
+              {links.map((l, i) => (
+                <motion.div
+                  key={l.href}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.04 * i }}
                 >
-                  Холбогдох
-                </a>
-              </div>
-            </motion.div>
+                  <Link
+                    href={l.href}
+                    onClick={() => setOpen(false)}
+                    className="block rounded-xl px-4 py-3.5 text-[0.95rem] text-foam/90"
+                  >
+                    {l.label}
+                  </Link>
+                </motion.div>
+              ))}
+              <a
+                href="tel:+97690031771"
+                className="mt-1 flex h-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
+              >
+                Холбогдох
+              </a>
+            </motion.nav>
           </motion.div>
         ) : null}
       </AnimatePresence>
