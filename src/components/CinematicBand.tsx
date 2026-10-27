@@ -45,10 +45,10 @@ export function CinematicBand({
           loop
           playsInline
           preload="metadata"
-          poster="/media/section-banner-frame.jpg"
+          poster="/media/web-hero-seascape-frame.jpg"
           aria-hidden
         >
-          <source src="/media/section-banner.mp4" type="video/mp4" />
+          <source src="/media/web-hero-seascape.mp4" type="video/mp4" />
         </video>
       </div>
 
