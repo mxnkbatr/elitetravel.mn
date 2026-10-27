@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPrice, isBookable, tours } from "@/data/tours";
+import { withTransforms } from "@/lib/cloudinary";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -16,16 +17,19 @@ export function FeaturedBanner() {
   const [paused, setPaused] = useState(false);
   const slide = slides[index];
 
-  useEffect(() => {
-    if (paused || slides.length < 2) return;
-    const id = window.setTimeout(() => go(1), INTERVAL_MS);
-    return () => window.clearTimeout(id);
-  }, [index, paused]);
-
   function go(step: number) {
     setDir(step);
     setIndex((i) => (i + step + slides.length) % slides.length);
   }
+
+  useEffect(() => {
+    if (paused || slides.length < 2) return;
+    const id = window.setTimeout(() => {
+      setDir(1);
+      setIndex((i) => (i + 1) % slides.length);
+    }, INTERVAL_MS);
+    return () => window.clearTimeout(id);
+  }, [index, paused]);
 
   function onDragEnd(_: unknown, info: PanInfo) {
     setPaused(false);
@@ -40,7 +44,8 @@ export function FeaturedBanner() {
       {/* Blurred backdrop from the current slide gives the card its glassy tint */}
       <AnimatePresence initial={false}>
         <motion.div key={`bg-${slide.id}`} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}>
-          <Image src={slide.image} alt="" fill className="scale-125 object-cover opacity-40 blur-2xl" sizes="100vw" />
+          {/* Pre-blurred 48px thumbnail from Cloudinary — a live CSS blur repaints on every scroll frame */}
+          <Image src={withTransforms(slide.image, "w_48,q_40,e_blur:600")} alt="" fill unoptimized className="scale-125 object-cover opacity-40" />
         </motion.div>
       </AnimatePresence>
 

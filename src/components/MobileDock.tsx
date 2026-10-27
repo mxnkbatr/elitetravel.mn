@@ -28,7 +28,7 @@ export function MobileDock() {
         initial={{ y: 24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto flex max-w-md items-stretch justify-between rounded-[1.5rem] border border-white/10 bg-[#062a2a]/92 backdrop-blur-xl px-1.5 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+        className="mx-auto flex max-w-md items-stretch justify-between rounded-[1.5rem] border border-white/10 bg-[#062a2a]/[0.97] backdrop-blur-xl sm:bg-[#062a2a]/92 px-1.5 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
       >
         {items.map((item) => {
           const active =

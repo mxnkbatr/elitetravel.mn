@@ -92,7 +92,7 @@ export function Navbar() {
           className={`mx-auto flex items-center justify-between gap-3 rounded-full border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-500 sm:pl-5 ${
             onDark
               ? "border-white/15 bg-white/[0.07] backdrop-blur-md"
-              : "border-[var(--line)] bg-bg-elevated/85 shadow-[0_10px_40px_rgba(6,42,42,0.10)] backdrop-blur-xl"
+              : "border-[var(--line)] bg-bg-elevated/95 shadow-[0_10px_40px_rgba(6,42,42,0.10)] backdrop-blur-xl sm:bg-bg-elevated/85"
           }`}
         >
           <EliteLogo size="sm" light={onDark} showWordmark={!compact} />

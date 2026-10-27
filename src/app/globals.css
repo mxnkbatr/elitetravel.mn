@@ -663,3 +663,14 @@ html[data-intro] body::before {
 html[data-intro] body {
   overflow: hidden;
 }
+
+/* Phones: glass blur re-samples everything behind it on every scroll frame — the main
+   source of jank on mid-range handsets. Translucent fills stay; only the blur goes. */
+@media (max-width: 639px) {
+  *,
+  *::before,
+  *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}

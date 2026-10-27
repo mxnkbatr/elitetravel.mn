@@ -87,6 +87,9 @@ export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen =
       zoom: 0.8,
       attributionControl: { compact: true },
       renderWorldCopies: false,
+      // Phones have 2–3× screens; drawing every vector tile at full density is what stutters
+      pixelRatio: Math.min(window.devicePixelRatio || 1, window.matchMedia("(max-width: 639px)").matches ? 1.5 : 2),
+      fadeDuration: 0,
     });
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.dragRotate.disable();
@@ -179,12 +182,20 @@ export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen =
         .addTo(map);
 
       let t0 = performance.now();
+      let lastStep = "";
       const fly = (now: number) => {
         const path = routes[activeRef.current];
         if (path && planeRef.current) {
           const t = ((now - t0) / 4200) % 1;
           const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
           const i = Math.min(path.length - 2, Math.floor(eased * (path.length - 1)));
+          // Only touch the marker when it advances to the next route point (~15×/s, not 60)
+          const step = `${activeRef.current}:${i}`;
+          if (step === lastStep) {
+            rafRef.current = requestAnimationFrame(fly);
+            return;
+          }
+          lastStep = step;
           const a = map.project(path[i] as LngLatLike);
           const b = map.project(path[i + 1] as LngLatLike);
           const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
@@ -217,7 +228,6 @@ export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen =
       readyRef.current = false;
       pinEls.current = {};
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function highlight(key: string) {
@@ -247,7 +257,6 @@ export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen =
     activeRef.current = active;
     highlight(active);
     if (readyRef.current) focus(active);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
   return (

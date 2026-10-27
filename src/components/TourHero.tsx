@@ -2,6 +2,7 @@
 
 import { SaveButton } from "@/components/SaveButton";
 import { formatPrice, isBookable, type Tour } from "@/data/tours";
+import { withTransforms } from "@/lib/cloudinary";
 import { scrollToY } from "@/lib/scroll";
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 import Image from "next/image";
@@ -82,7 +83,7 @@ export function TourHero({ tour, onBook }: { tour: Tour; onBook: () => void }) {
     <section className="relative isolate">
       {/* Ambient glow from the poster */}
       <div className="pointer-events-none absolute -inset-x-10 -top-24 bottom-0 -z-10 overflow-hidden opacity-40 [mask-image:linear-gradient(180deg,#000_30%,transparent)]">
-        <Image src={tour.image} alt="" fill className="scale-125 object-cover blur-3xl saturate-150" sizes="50vw" />
+        <Image src={withTransforms(tour.image, "w_48,q_40,e_blur:800,e_saturation:50")} alt="" fill unoptimized className="scale-125 object-cover" />
       </div>
 
       <div className="grid items-center gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">

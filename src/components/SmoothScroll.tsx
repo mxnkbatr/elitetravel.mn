@@ -12,7 +12,8 @@ export function SmoothScroll() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Touch devices already scroll natively and smoothly; Lenis there only adds per-frame work
+    if (window.matchMedia("(prefers-reduced-motion: reduce), (pointer: coarse)").matches) return;
     registerGsap();
 
     const lenis = new Lenis({ duration: 1.15, smoothWheel: true, anchors: { offset: -96 } });
