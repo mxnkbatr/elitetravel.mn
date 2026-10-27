@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/AppShell";
+import { introBootScript } from "@/lib/intro";
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
@@ -49,7 +50,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="mn" className={`${display.variable} ${body.variable} h-full`}>
+    <html lang="mn" className={`${display.variable} ${body.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
+      </head>
       <body className="min-h-full bg-bg font-sans text-foam antialiased">
         <AppShell>{children}</AppShell>
       </body>

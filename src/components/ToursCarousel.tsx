@@ -1,5 +1,6 @@
 "use client";
 
+import { TourAccordion } from "@/components/TourAccordion";
 import { TourCard } from "@/components/TourCard";
 import { isBookable, tours } from "@/data/tours";
 import { gsap, registerGsap, useGSAP } from "@/lib/gsap";
@@ -87,7 +88,7 @@ export function ToursCarousel() {
               type="button"
               aria-label="Зүүн"
               onClick={() => scrollBy(-1)}
-              className="grid size-10 place-items-center rounded-full border border-[var(--line)] bg-bg-elevated text-foam transition hover:border-accent hover:text-accent"
+              className="grid size-10 place-items-center rounded-full border border-[var(--line)] bg-bg-elevated text-foam transition hover:border-accent hover:text-accent lg:hidden"
             >
               ←
             </button>
@@ -95,7 +96,7 @@ export function ToursCarousel() {
               type="button"
               aria-label="Баруун"
               onClick={() => scrollBy(1)}
-              className="grid size-10 place-items-center rounded-full border border-[var(--line)] bg-bg-elevated text-foam transition hover:border-accent hover:text-accent"
+              className="grid size-10 place-items-center rounded-full border border-[var(--line)] bg-bg-elevated text-foam transition hover:border-accent hover:text-accent lg:hidden"
             >
               →
             </button>
@@ -114,11 +115,14 @@ export function ToursCarousel() {
           onMouseLeave={() => setPaused(false)}
           onTouchStart={() => setPaused(true)}
           onTouchEnd={() => setPaused(false)}
-          className="hide-scrollbar -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-1 px-1 pb-3"
+          className="hide-scrollbar -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-1 px-1 pb-3 lg:hidden"
         >
           {list.map((tour) => (
             <TourCard key={tour.id} tour={tour} />
           ))}
+        </div>
+        <div className="hidden lg:block">
+          <TourAccordion tours={list} />
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@
 
 import { Footer } from "@/components/Footer";
 import { ImageLoadMarker } from "@/components/ImageLoadMarker";
+import { IntroCurtain } from "@/components/IntroCurtain";
 import { MobileDock } from "@/components/MobileDock";
 import { Navbar } from "@/components/Navbar";
 import { PageTransition } from "@/components/PageTransition";
@@ -13,6 +14,7 @@ import type { ReactNode } from "react";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-dvh flex-col">
+      <IntroCurtain />
       <SmoothScroll />
       <ImageLoadMarker />
       <ScrollProgress />

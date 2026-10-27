@@ -2,6 +2,7 @@
 
 import { BookingPlanner } from "@/components/BookingPlanner";
 import { SaveButton } from "@/components/SaveButton";
+import { ItineraryStory } from "@/components/ItineraryStory";
 import { BookingSheet, TourTabs } from "@/components/TourMobile";
 import { formatPrice, isBookable, relatedTours, type ItineraryDay, type Tour } from "@/data/tours";
 import { motion } from "framer-motion";
@@ -130,7 +131,10 @@ export function TourDetailView({ tour }: { tour: Tour }) {
             {tour.itinerary.length ? (
             <section id="itinerary">
               <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">Хөтөлбөр</h2>
-              <ol className="relative mt-6 space-y-6 border-l border-dashed border-accent/35 pl-7">
+              <div className="mt-6 hidden lg:block">
+                <ItineraryStory tour={tour} renderMeta={(d) => <DayMeta day={d} />} />
+              </div>
+              <ol className="relative mt-6 space-y-6 border-l border-dashed border-accent/35 pl-7 lg:hidden">
                 {tour.itinerary.map((day, i) => (
                   <motion.li
                     key={day.day + day.title}

@@ -8,11 +8,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 /** Text-free scenery for the stage — the tour posters carry their own lettering. */
-const scenery: Record<string, { cover: string; flight: string; flightLabel: string }> = {
+const scenery: Record<string, { cover: string; flight: string; flightLabel: string; poster?: boolean }> = {
   hainan: { cover: cldImage("elitetravel/tours/tropical-aerial-coast"), flight: "5 цаг", flightLabel: "Шууд нислэг" },
   hongkong: { cover: cldImage("elitetravel/tours/hongkong-skyline"), flight: "4ц 40м", flightLabel: "Шууд нислэг" },
   bali: { cover: cldImage("elitetravel/tours/nusa-penida-kelingking"), flight: "Дамжин", flightLabel: "Нислэг" },
-  egypt: { cover: cldImage("elitetravel/tours/shakira-egypt"), flight: "—", flightLabel: "Нислэг" },
+  // Only a lettered poster exists for Egypt — the stage dims it so our heading stays readable
+  egypt: { cover: cldImage("elitetravel/tours/shakira-egypt"), flight: "—", flightLabel: "Нислэг", poster: true },
 };
 
 const items = destinations.map((d) => {
@@ -165,7 +166,7 @@ export function JourneyScroll() {
                 animate={{ scale: 1.02 }}
                 transition={{ duration: CYCLE_MS / 1000 + 1.5, ease: "linear" }}
               >
-                <Image src={cur.cover} alt={cur.name} fill className="object-cover" sizes="60vw" priority={active === 0} />
+                <Image src={cur.cover} alt={cur.name} fill className={`object-cover ${cur.poster ? "scale-110 blur-[3px] brightness-[0.45]" : ""}`} sizes="60vw" priority={active === 0} />
               </motion.div>
             </motion.div>
           </AnimatePresence>

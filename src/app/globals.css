@@ -636,3 +636,15 @@ img[data-nimg]:not([data-loaded]) {
     animation: none;
   }
 }
+
+/* First-visit intro: a static cover painted before hydration, replaced by the animated curtain */
+html[data-intro] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: #062a2a;
+}
+html[data-intro] body {
+  overflow: hidden;
+}
