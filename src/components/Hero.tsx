@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPrice, isBookable, tours } from "@/data/tours";
+import { INTRO_HOLD_MS } from "@/components/IntroCurtain";
 import { useCanAutoplayVideo } from "@/hooks/useCanAutoplayVideo";
 import { media } from "@/lib/cloudinary";
 import { gsap, registerGsap, useGSAP } from "@/lib/gsap";
@@ -11,6 +12,18 @@ import { useEffect, useRef, useState } from "react";
 const slides = tours.filter(isBookable).slice(0, 6);
 
 const INTERVAL_MS = 5600;
+const HERO_SEEN = "elite-hero-seen";
+
+/** Gold gradient lettering with a highlight band that the reveal sweeps across once. */
+const ACCENT_STYLE = {
+  color: "#e8b86d",
+  backgroundImage: "linear-gradient(100deg, #f3d199 0%, #e8b86d 35%, #fff6df 50%, #e8b86d 65%, #7ef0e0 100%)",
+  backgroundSize: "220% 100%",
+  backgroundPosition: "0% 0",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+} as const;
 
 const headline: { text: string; accent?: boolean }[][] = [
   [{ text: "Халуун" }, { text: "орны" }],
@@ -31,14 +44,65 @@ export function Hero() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
-        tl.fromTo(".hero-media", { scale: 1.25, filter: "blur(12px)" }, { scale: 1, filter: "blur(0px)", duration: 2.2 })
-          .fromTo(".hero-eyebrow", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 }, 0.3)
-          .fromTo(".hero-word", { yPercent: 115, rotate: 6 }, { yPercent: 0, rotate: 0, duration: 1.3, stagger: 0.09 }, 0.4)
-          .fromTo(".hero-lead", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9 }, 1.0)
-          .fromTo(".hero-cta > *", { y: 24, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.08, duration: 0.8 }, 1.1)
-          .fromTo(".hero-card", { x: 60, opacity: 0, rotate: 3 }, { x: 0, opacity: 1, rotate: 0, duration: 1.2 }, 1.0)
-          .fromTo(".hero-scroll", { opacity: 0 }, { opacity: 1, duration: 0.8 }, 1.5);
+        const html = document.documentElement;
+        // First visit: the intro curtain covers the page for ~2.1s — start as it lifts, not under it
+        const underCurtain = html.dataset.intro === "1";
+        let seen = false;
+        try {
+          seen = sessionStorage.getItem(HERO_SEEN) === "1";
+          sessionStorage.setItem(HERO_SEEN, "1");
+        } catch {
+          /* private mode: play the full reveal */
+        }
+        // Repeat visits in the same session get the same order, compressed to ~1s
+        const k = seen && !underCurtain ? 0.35 : 1;
+        // Start as the curtain begins to lift
+        const t0 = underCurtain ? INTRO_HOLD_MS / 1000 + 0.15 : 0.05;
+        if (underCurtain) html.dataset.heroHold = "1";
+
+        // One beat at a time: sea → headline → actions + header → featured card → scroll cue
+        const tl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: t0 });
+        tl.fromTo(".hero-media", { scale: 1.14, opacity: 0.35 }, { scale: 1, opacity: 1, duration: 2.6 * k, ease: "power2.out" }, 0)
+          .fromTo(".hero-eyebrow", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 * k }, 0.9 * k)
+          .fromTo(".hero-line > *", { yPercent: 110 }, { yPercent: 0, duration: 1.25 * k, stagger: 0.2 * k }, 1.0 * k)
+          .fromTo(".hero-accent", { backgroundPosition: "100% 0" }, { backgroundPosition: "0% 0", duration: 1.4 * k, ease: "power2.inOut" }, 1.6 * k)
+          .fromTo(".hero-lead", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9 * k }, 2.1 * k)
+          .fromTo(".hero-cta > *", { y: 18, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.1 * k, duration: 0.8 * k }, 2.3 * k)
+          .call(() => delete html.dataset.heroHold, [], 2.5 * k);
+
+        // The featured card waits its turn — or comes in as soon as the visitor moves
+        gsap.set(".hero-card", { x: 70, opacity: 0, rotate: 2 });
+        let cardIn = false;
+        const showCard = () => {
+          if (cardIn) return;
+          cardIn = true;
+          gsap.to(".hero-card", { x: 0, opacity: 1, rotate: 0, duration: 1.2, ease: "expo.out" });
+        };
+        const cardTimer = window.setTimeout(showCard, (t0 + 3.2 * k) * 1000);
+        const earliest = (t0 + 2.3 * k) * 1000;
+        const born = performance.now();
+        const onMove = () => performance.now() - born > earliest && showCard();
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("wheel", onMove, { passive: true });
+
+        // Scroll cue only for visitors who have not found the page scrolls on their own
+        gsap.set(".hero-scroll", { opacity: 0 });
+        let scrolled = false;
+        const onScroll = () => {
+          scrolled = true;
+          showCard();
+        };
+        window.addEventListener("scroll", onScroll, { passive: true, once: true });
+        const cueTimer = window.setTimeout(() => !scrolled && gsap.to(".hero-scroll", { opacity: 1, duration: 0.8 }), (t0 + 4.4 * k) * 1000);
+
+        return () => {
+          window.clearTimeout(cardTimer);
+          window.clearTimeout(cueTimer);
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("wheel", onMove);
+          window.removeEventListener("scroll", onScroll);
+          delete html.dataset.heroHold;
+        };
 
         gsap.to(".hero-media", {
           yPercent: 14,
@@ -122,13 +186,13 @@ export function Hero() {
 
           <h1 className="mt-6 font-display text-[clamp(3rem,9.5vw,7.25rem)] font-semibold leading-[0.9] tracking-[-0.045em] text-white">
             {headline.map((line, li) => (
-              <span key={li} className="block overflow-hidden pb-[0.08em]">
+              <span key={li} className="hero-line block overflow-hidden pb-[0.08em]">
                 {line.map((w) => (
                   <span
                     key={w.text}
-                    className={`hero-word mr-[0.22em] inline-block ${
-                      w.accent ? "bg-gradient-to-r from-[#f3d199] via-[#e8b86d] to-[#7ef0e0] bg-clip-text italic text-transparent" : ""
-                    }`}
+                    className={`hero-word mr-[0.22em] inline-block ${w.accent ? "hero-accent italic" : ""}`}
+                    // Inline so the word can never end up as transparent text with no gradient behind it
+                    style={w.accent ? ACCENT_STYLE : undefined}
                   >
                     {w.text}
                   </span>
