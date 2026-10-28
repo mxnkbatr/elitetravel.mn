@@ -1,0 +1,49 @@
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    # The app shell lives in mobile/; the site itself deploys on Vercel
+    working_directory: mobile
+    integrations:
+      # Name of the App Store Connect API key added under Codemagic → Team settings → Integrations
+      app_store_connect: Elite Travel ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: mn.elitetravel.app
+      node: 22
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+    # Web-only pushes reach the app through the live site, so they skip the iOS build
+    when:
+      changeset:
+        includes:
+          - "mobile/"
+          - "codemagic.yaml"
+    scripts:
+      - name: Install
+        script: npm ci
+      - name: Sync Capacitor
+        script: npx cap sync ios
+      - name: Apply signing profiles
+        script: xcode-project use-profiles
+      - name: Build IPA
+        # Codemagic's BUILD_NUMBER grows every run, so TestFlight never sees a duplicate build
+        script: |
+          xcode-project build-ipa \
+            --project ios/App/App.xcodeproj \
+            --scheme App \
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - mobile/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

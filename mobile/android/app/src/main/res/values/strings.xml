@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Elite Travel</string>
+    <string name="title_activity_main">Elite Travel</string>
+    <string name="package_name">mn.elitetravel.app</string>
+    <string name="custom_url_scheme">mn.elitetravel.app</string>
+</resources>

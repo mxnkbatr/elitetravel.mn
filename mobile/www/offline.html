@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Elite Travel</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+      html, body { margin: 0; height: 100%; background: #062a2a; color: #fff; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+      main { min-height: 100%; display: grid; place-items: center; padding: 32px 24px env(safe-area-inset-bottom); text-align: center; }
+      .mark { font: 600 72px/1 Georgia, "Times New Roman", serif; color: #f3e0c2; }
+      .brand { margin-top: 8px; letter-spacing: .42em; font: 600 18px/1 Georgia, serif; color: #f3e0c2; padding-left: .42em; }
+      h1 { margin: 40px 0 8px; font: 600 26px/1.2 Georgia, serif; }
+      p { margin: 0 auto; max-width: 280px; color: rgba(255,255,255,.7); font-size: 15px; line-height: 1.5; }
+      button { margin-top: 28px; height: 50px; padding: 0 28px; border: 0; border-radius: 999px; background: #e8b86d; color: #0a2a26; font-weight: 700; font-size: 15px; }
+      button:active { transform: scale(.97); }
+      a { display: block; margin-top: 16px; color: #7ef0e0; text-decoration: none; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div>
+        <div class="mark">E</div>
+        <div class="brand">ELITE</div>
+        <h1>Интернэт холболт алга</h1>
+        <p>Холболтоо шалгаад дахин оролдоорой. Аялал асуух бол шууд залгаж болно.</p>
+        <button id="retry" type="button">Дахин оролдох</button>
+        <a href="tel:+97690031771">☏ +976 9003 1771</a>
+      </div>
+    </main>
+    <script>
+      document.getElementById("retry").addEventListener("click", function () {
+        location.replace(window.__ELITE_URL__ || "https://elitetravel-mn-wg6y.vercel.app");
+      });
+      window.addEventListener("online", function () { location.replace(window.__ELITE_URL__ || "https://elitetravel-mn-wg6y.vercel.app"); });
+    </script>
+  </body>
+</html>
