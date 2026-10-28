@@ -675,12 +675,35 @@ html[data-intro] body {
   }
 }
 
-/* First visit: the header waits until the headline has landed, then glides in */
-header > div:first-child {
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), translate 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+/* First visit "Dynamic Island" header: only the E mark while it is a dot, then the
+   capsule stretches and its contents cascade in (state lives in Navbar) */
+header [data-island="wait"] > :not(:first-child),
+header [data-island="dot"] > :not(:first-child) {
+  display: none;
 }
-html[data-hero-hold] header > div:first-child {
-  opacity: 0;
-  translate: 0 -28px;
-  pointer-events: none;
+header [data-island="open"] > a:first-child span span,
+header [data-island="open"] nav > a,
+header [data-island="open"] > div:last-child > * {
+  animation: island-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+header [data-island="open"] > a:first-child span span {
+  animation-delay: 0.3s;
+}
+header [data-island="open"] nav > a {
+  animation-delay: calc(0.32s + var(--i, 0) * 0.06s);
+}
+header [data-island="open"] > div:last-child > * {
+  animation-delay: 0.55s;
+}
+@keyframes island-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    filter: blur(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  header [data-island] * {
+    animation: none !important;
+  }
 }

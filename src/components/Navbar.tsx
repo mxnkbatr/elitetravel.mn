@@ -50,6 +50,46 @@ export function Navbar() {
   };
 
   const [isPhone, setIsPhone] = useState(false);
+  /**
+   * First-visit "Dynamic Island" entrance: wait (hidden under the intro / hero reveal) →
+   * dot (E mark pops in, top centre) → open (stretches into the full capsule, contents
+   * cascade in) → null (ordinary header).
+   */
+  const [island, setIsland] = useState<"wait" | "dot" | "open" | null>(null);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const holding = () => html.dataset.intro === "1" || html.dataset.heroHold === "1";
+    if (!holding()) return;
+    const timers: number[] = [];
+    const sync = () => {
+      // Still covered by the intro curtain / hero hold: sit hidden as a dot-to-be
+      if (holding()) {
+        setIsland("wait");
+        return;
+      }
+      observer.disconnect();
+      setIsland("dot");
+      timers.push(window.setTimeout(() => setIsland("open"), 420));
+      timers.push(window.setTimeout(() => setIsland(null), 1700));
+    };
+    const observer = new MutationObserver(sync);
+    observer.observe(html, { attributes: true, attributeFilter: ["data-intro", "data-hero-hold"] });
+    // First tick happens under the curtain; pages without the hero only follow the intro
+    timers.push(window.setTimeout(sync, 0));
+    // Safety net: whatever happens to the intro, the header is never held back for long
+    timers.push(
+      window.setTimeout(() => {
+        delete html.dataset.heroHold;
+        delete html.dataset.intro;
+      }, 6500),
+    );
+    return () => {
+      observer.disconnect();
+      timers.forEach(window.clearTimeout);
+    };
+  }, []);
+  const asDot = island === "wait" || island === "dot";
 
   useEffect(() => {
     setOpen(false);
@@ -87,15 +127,28 @@ export function Navbar() {
       >
         <motion.div
           initial={false}
-          animate={{ maxWidth: compact ? 880 : 1152, height: compact ? 52 : 57.6 }}
-          transition={{ type: "spring", stiffness: 260, damping: 32 }}
-          className={`mx-auto flex items-center justify-between gap-3 rounded-full border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-500 sm:pl-5 ${
+          data-island={island ?? undefined}
+          animate={
+            asDot
+              ? { maxWidth: 56, height: 56, opacity: island === "dot" ? 1 : 0, scale: island === "dot" ? 1 : 0.4 }
+              : { maxWidth: compact ? 880 : 1152, height: compact ? 52 : 57.6, opacity: 1, scale: 1 }
+          }
+          transition={
+            island === "dot"
+              ? { type: "spring", stiffness: 520, damping: 22 }
+              : island === "open"
+                ? { maxWidth: { type: "spring", stiffness: 140, damping: 20, mass: 0.9 }, default: { type: "spring", stiffness: 260, damping: 30 } }
+                : { type: "spring", stiffness: 260, damping: 32 }
+          }
+          className={`mx-auto flex items-center gap-3 overflow-hidden rounded-full border transition-[background-color,border-color,box-shadow] duration-500 ${
+            asDot ? "justify-center px-0" : "justify-between pl-4 pr-2 sm:pl-5"
+          } ${
             onDark
               ? "border-white/15 bg-white/[0.07] backdrop-blur-md"
               : "border-[var(--line)] bg-bg-elevated/95 shadow-[0_10px_40px_rgba(6,42,42,0.10)] backdrop-blur-xl sm:bg-bg-elevated/85"
           }`}
         >
-          <EliteLogo size="sm" light={onDark} showWordmark={!compact} />
+          <EliteLogo size="sm" light={onDark} showWordmark={!compact && !asDot} />
 
           <nav
             className="hidden items-center lg:flex"
@@ -104,12 +157,13 @@ export function Navbar() {
               closeMegaSoon();
             }}
           >
-            {links.map((l) => {
+            {links.map((l, i) => {
               const active = isActive(pathname, l.href);
               return (
                 <Link
                   key={l.href}
                   href={l.href}
+                  style={{ "--i": i } as React.CSSProperties}
                   onMouseEnter={() => {
                     setHover(l.href);
                     if (l.href === "/tours") openMega();

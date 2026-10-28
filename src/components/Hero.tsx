@@ -67,8 +67,11 @@ export function Hero() {
           .fromTo(".hero-line > *", { yPercent: 110 }, { yPercent: 0, duration: 1.25 * k, stagger: 0.2 * k }, 1.0 * k)
           .fromTo(".hero-accent", { backgroundPosition: "100% 0" }, { backgroundPosition: "0% 0", duration: 1.4 * k, ease: "power2.inOut" }, 1.6 * k)
           .fromTo(".hero-lead", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9 * k }, 2.1 * k)
-          .fromTo(".hero-cta > *", { y: 18, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.1 * k, duration: 0.8 * k }, 2.3 * k)
-          .call(() => delete html.dataset.heroHold, [], 2.5 * k);
+          .fromTo(".hero-cta > *", { y: 18, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.1 * k, duration: 0.8 * k }, 2.3 * k);
+
+        // Header's turn. A plain timer, not the timeline: GSAP pauses in background tabs and
+        // the header must never stay hidden because the tab was opened behind another one.
+        const holdTimer = window.setTimeout(() => delete html.dataset.heroHold, (t0 + 2.5 * k) * 1000);
 
         // The featured card waits its turn — or comes in as soon as the visitor moves
         gsap.set(".hero-card", { x: 70, opacity: 0, rotate: 2 });
@@ -96,6 +99,7 @@ export function Hero() {
         const cueTimer = window.setTimeout(() => !scrolled && gsap.to(".hero-scroll", { opacity: 1, duration: 0.8 }), (t0 + 4.4 * k) * 1000);
 
         return () => {
+          window.clearTimeout(holdTimer);
           window.clearTimeout(cardTimer);
           window.clearTimeout(cueTimer);
           window.removeEventListener("pointermove", onMove);
