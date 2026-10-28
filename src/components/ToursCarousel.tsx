@@ -2,7 +2,8 @@
 
 import { TourAccordion } from "@/components/TourAccordion";
 import { TourCard } from "@/components/TourCard";
-import { isBookable, tours } from "@/data/tours";
+import { isBookable } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { gsap, registerGsap, useGSAP } from "@/lib/gsap";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,6 +42,7 @@ export function ToursCarousel() {
     { scope: root },
   );
   const [paused, setPaused] = useState(false);
+  const tours = useTours();
   const list = tours.filter(isBookable);
 
   const scrollBy = useCallback((dir: -1 | 1) => {

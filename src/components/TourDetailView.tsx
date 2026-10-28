@@ -7,12 +7,13 @@ import { TourHero } from "@/components/TourHero";
 import { ItineraryStory } from "@/components/ItineraryStory";
 import { BookingSheet, TourTabs } from "@/components/TourMobile";
 import { formatPrice, isBookable, relatedTours, type ItineraryDay, type Tour } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 
 export function TourDetailView({ tour }: { tour: Tour }) {
-  const related = relatedTours(tour.id, 3);
+  const related = relatedTours(useTours(), tour.id, 3);
   const [sheetOpen, setSheetOpen] = useState(false);
   const bookable = isBookable(tour);
 

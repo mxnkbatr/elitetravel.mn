@@ -3,7 +3,8 @@
 import { bookingMessage } from "@/components/BookingPlanner";
 import { MobileTitle } from "@/components/MobileTitle";
 import { SaveButton } from "@/components/SaveButton";
-import { formatPrice, getTour, isBookable, tours } from "@/data/tours";
+import { formatPrice, getTour, isBookable } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { daysUntil } from "@/lib/dates";
 import { removeBooking, useTraveller, type BookingRequest } from "@/lib/traveller-store";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,7 +19,7 @@ const airport: Partial<Record<string, string>> = { hainan: "HAK", hongkong: "HKG
 
 /** Boarding-pass style card for one booking request. */
 function Ticket({ b, index }: { b: BookingRequest; index: number }) {
-  const tour = getTour(b.tourId);
+  const tour = getTour(useTours(), b.tourId);
   const [days, setDays] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -150,7 +151,8 @@ function Ticket({ b, index }: { b: BookingRequest; index: number }) {
 export function MobileBookings() {
   const { saved, bookings } = useTraveller();
   const [tab, setTab] = useState<"bookings" | "saved">("bookings");
-  const savedTours = saved.map(getTour).filter((t) => t != null);
+  const tours = useTours();
+  const savedTours = saved.map((id) => getTour(tours, id)).filter((t) => t != null);
   const ideas = tours.filter((t) => isBookable(t) && !saved.includes(t.id)).slice(0, 4);
 
   return (

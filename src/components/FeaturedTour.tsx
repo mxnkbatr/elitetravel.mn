@@ -1,12 +1,14 @@
 "use client";
 
 import { formatPrice, getTour } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
 export function FeaturedTour() {
-  const tour = getTour("weeknd-world-tour") ?? getTour("bali");
+  const tours = useTours();
+  const tour = getTour(tours, "weeknd-world-tour") ?? getTour(tours, "bali");
   if (!tour) return null;
 
   return (

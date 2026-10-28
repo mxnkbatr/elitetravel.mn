@@ -1,7 +1,7 @@
 "use client";
 
 import { MobileTitle } from "@/components/MobileTitle";
-import { stays } from "@/components/ResortsPage";
+import { useStays } from "@/components/ResortsPage";
 import { formatPrice } from "@/data/tours";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -9,6 +9,7 @@ import Link from "next/link";
 
 /** Phone hotels: tall photo cards with the tours that stay there in a swipe row. */
 export function MobileResorts() {
+  const stays = useStays();
   return (
     <div className="px-4 pb-8">
       <MobileTitle title="Буудлууд" sub="Аялал бүрийн байрлах газар" />

@@ -1,10 +1,11 @@
 "use client";
 
-import { destinations, formatPrice, isBookable, tours } from "@/data/tours";
+import { destinations, formatPrice, isBookable, type Tour } from "@/data/tours";
 import { withTransforms } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { Map, Marker, NavigationControl, setWorkerUrl, type LngLatLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 /** Free, keyless vector tiles — no origin allow-list to break in production. */
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
@@ -18,7 +19,8 @@ const coords: Record<string, [number, number]> = {
   egypt: [31.2357, 30.0444],
 };
 
-const pins = destinations.map((d) => {
+const buildPins = (tours: Tour[]) =>
+  destinations.map((d) => {
   const open = tours.filter((t) => isBookable(t) && t.destinationKey === d.key);
   const from = open.reduce<number | null>((m, t) => (t.price && (!m || t.price < m) ? t.price : m), null);
   return {
@@ -47,7 +49,7 @@ function arc(to: [number, number], steps = 64): [number, number][] {
   });
 }
 
-const routes = Object.fromEntries(pins.map((p) => [p.key, arc([p.lng, p.lat])]));
+const routes = Object.fromEntries(destinations.map((d) => [d.key, arc(coords[d.key])]));
 
 const PLANE_SVG = `<svg width="26" height="26" viewBox="0 0 24 24" fill="#0a2a26"><path d="M21 15.5v-1.8l-8-5V3.6a1.6 1.6 0 0 0-3.2 0v5.1l-8 5v1.8l8-2.5v4.6l-2.2 1.7V21l3.8-1.1 3.8 1.1v-1.7l-2.2-1.7V13l8 2.5Z"/></svg>`;
 
@@ -60,6 +62,8 @@ type DestinationMapProps = {
 };
 
 export function DestinationMap({ active, onSelect, bottomInset = 0, fullscreen = true }: DestinationMapProps) {
+  const tours = useTours();
+  const pins = useMemo(() => buildPins(tours), [tours]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const pinEls = useRef<Record<string, HTMLElement>>({});

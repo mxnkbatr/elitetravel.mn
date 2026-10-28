@@ -1,4 +1,5 @@
 import { getTour, isBookable } from "@/data/tours";
+import { getTours } from "@/lib/server/content";
 import { quote } from "@/lib/pricing";
 import { supabaseAdmin } from "@/lib/server/supabase-admin";
 import { randomBytes } from "node:crypto";
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
   if (text(body.website, 100)) return Response.json({ id: bookingId() }); // quietly drop bots
 
-  const tour = typeof body.tourId === "string" ? getTour(body.tourId) : undefined;
+  const tour = typeof body.tourId === "string" ? getTour(await getTours(), body.tourId) : undefined;
   if (!tour || !isBookable(tour)) return fail(400, "Энэ аялал захиалгад нээлттэй биш байна.");
 
   const name = text(body.name, 80);

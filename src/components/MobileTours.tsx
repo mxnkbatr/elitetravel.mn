@@ -1,7 +1,8 @@
 "use client";
 
 import { SaveButton } from "@/components/SaveButton";
-import { formatPrice, tours, type Tour } from "@/data/tours";
+import { formatPrice, type Tour } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { daysUntil } from "@/lib/dates";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -25,10 +26,6 @@ const sorts = [
 type Place = (typeof places)[number]["key"];
 type Sort = (typeof sorts)[number]["key"];
 
-const listed = tours.filter((t) => t.status !== "ended");
-const priced = listed.filter((t) => t.price != null).map((t) => t.price!);
-const PRICE_MAX = Math.max(...priced);
-const PRICE_MIN = Math.min(...priced);
 
 function sortTours(list: Tour[], sort: Sort) {
   const rank = (t: Tour) => daysUntil(t.dates) ?? 9999;
@@ -42,19 +39,24 @@ function sortTours(list: Tour[], sort: Sort) {
 
 /** Phone tour list: compact rows, quick place chips and a filter/sort bottom sheet. */
 export function MobileTours({ initialFilter = "all" }: { initialFilter?: string }) {
+  const tours = useTours();
+  const listed = useMemo(() => tours.filter((t) => t.status !== "ended"), [tours]);
+  const priced = listed.filter((t) => t.price != null).map((t) => t.price!);
+  const priceMax = priced.length ? Math.max(...priced) : 0;
+  const priceMin = priced.length ? Math.min(...priced) : 0;
   const start = (places.some((p) => p.key === initialFilter) ? initialFilter : "all") as Place;
   const [place, setPlace] = useState<Place>(start);
   const [sort, setSort] = useState<Sort>("soonest");
-  const [maxPrice, setMaxPrice] = useState(PRICE_MAX);
+  const [maxPrice, setMaxPrice] = useState(priceMax);
   const [sheet, setSheet] = useState(false);
 
   const result = useMemo(() => {
     const byPlace = listed.filter((t) => place === "all" || t.destinationKey === place);
     const byPrice = byPlace.filter((t) => t.price == null || t.price <= maxPrice);
     return sortTours(byPrice, sort);
-  }, [place, sort, maxPrice]);
+  }, [listed, place, sort, maxPrice]);
 
-  const activeFilters = (sort !== "soonest" ? 1 : 0) + (maxPrice < PRICE_MAX ? 1 : 0);
+  const activeFilters = (sort !== "soonest" ? 1 : 0) + (maxPrice < priceMax ? 1 : 0);
 
   return (
     <div>
@@ -135,7 +137,7 @@ export function MobileTours({ initialFilter = "all" }: { initialFilter?: string 
       {!result.length ? (
         <div className="rounded-2xl border border-dashed border-[var(--line)] p-8 text-center text-sm text-muted">
           Шүүлтүүрт тохирох аялал алга.
-          <button type="button" onClick={() => { setPlace("all"); setMaxPrice(PRICE_MAX); }} className="mt-3 block w-full font-semibold text-accent">
+          <button type="button" onClick={() => { setPlace("all"); setMaxPrice(priceMax); }} className="mt-3 block w-full font-semibold text-accent">
             Шүүлтүүр цэвэрлэх
           </button>
         </div>
@@ -164,7 +166,7 @@ export function MobileTours({ initialFilter = "all" }: { initialFilter?: string 
                   type="button"
                   onClick={() => {
                     setSort("soonest");
-                    setMaxPrice(PRICE_MAX);
+                    setMaxPrice(priceMax);
                   }}
                   className="text-sm font-semibold text-accent"
                 >
@@ -197,8 +199,8 @@ export function MobileTours({ initialFilter = "all" }: { initialFilter?: string 
               </div>
               <input
                 type="range"
-                min={PRICE_MIN}
-                max={PRICE_MAX}
+                min={priceMin}
+                max={priceMax}
                 step={100000}
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
@@ -206,8 +208,8 @@ export function MobileTours({ initialFilter = "all" }: { initialFilter?: string 
                 aria-label="Дээд үнэ"
               />
               <div className="mt-1 flex justify-between text-[0.7rem] text-muted">
-                <span className="font-num font-medium">{formatPrice(PRICE_MIN)}</span>
-                <span className="font-num font-medium">{formatPrice(PRICE_MAX)}</span>
+                <span className="font-num font-medium">{formatPrice(priceMin)}</span>
+                <span className="font-num font-medium">{formatPrice(priceMax)}</span>
               </div>
 
               <button type="button" onClick={() => setSheet(false)} className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-ink text-sm font-semibold text-white active:scale-[0.98]">

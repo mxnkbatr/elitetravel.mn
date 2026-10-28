@@ -1,7 +1,8 @@
 "use client";
 
 import { SaveButton } from "@/components/SaveButton";
-import { formatPrice, tours } from "@/data/tours";
+import { formatPrice } from "@/data/tours";
+import { useTours } from "@/lib/content";
 
 import { filterChipClass } from "@/lib/ui";
 import { AnimatePresence, motion } from "framer-motion";
@@ -28,6 +29,7 @@ export function Tours({
   limit,
   initialFilter = "all",
 }: ToursProps) {
+  const tours = useTours();
   const start = filters.some((f) => f.key === initialFilter) ? initialFilter : "all";
   const [filter, setFilter] = useState<(typeof filters)[number]["key"]>(
     start as (typeof filters)[number]["key"],
@@ -43,7 +45,7 @@ export function Tours({
     const list =
       (filter === "all" ? tours : tours.filter((t) => t.destinationKey === filter)).filter((t) => t.status !== "ended");
     return typeof limit === "number" ? list.slice(0, limit) : list;
-  }, [filter, limit]);
+  }, [tours, filter, limit]);
 
   return (
     <section>

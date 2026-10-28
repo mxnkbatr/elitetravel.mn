@@ -1,7 +1,8 @@
 "use client";
 
-import { news, type NewsCategory, type NewsItem } from "@/data/news";
+import type { NewsCategory, NewsItem } from "@/data/news";
 import { getTour, formatPrice } from "@/data/tours";
+import { useNews, useTours } from "@/lib/content";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,7 +54,8 @@ function Card({ item, big, onOpen }: { item: NewsItem; big?: boolean; onOpen: ()
 }
 
 export function NewsReader({ item, onClose }: { item: NewsItem; onClose: () => void }) {
-  const tour = item.tourId ? getTour(item.tourId) : undefined;
+  const tours = useTours();
+  const tour = item.tourId ? getTour(tours, item.tourId) : undefined;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -120,6 +122,7 @@ export function NewsReader({ item, onClose }: { item: NewsItem; onClose: () => v
 }
 
 export function NewsPage() {
+  const news = useNews();
   const [cat, setCat] = useState<(typeof categories)[number]>("Бүгд");
   const [open, setOpen] = useState<NewsItem | null>(null);
   const list = cat === "Бүгд" ? news : news.filter((n) => n.category === cat);

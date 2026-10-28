@@ -1,5 +1,7 @@
 import { AppShell } from "@/components/AppShell";
+import { ContentProvider } from "@/lib/content";
 import { introBootScript } from "@/lib/intro";
+import { getNews, getTours } from "@/lib/server/content";
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
@@ -48,14 +50,17 @@ export const viewport: Viewport = {
   themeColor: "#eef5f2",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const [tours, news] = await Promise.all([getTours(), getNews()]);
   return (
     <html lang="mn" className={`${display.variable} ${body.variable} h-full`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
       </head>
       <body className="min-h-full bg-bg font-sans text-foam antialiased">
-        <AppShell>{children}</AppShell>
+        <ContentProvider tours={tours} news={news}>
+          <AppShell>{children}</AppShell>
+        </ContentProvider>
       </body>
     </html>
   );

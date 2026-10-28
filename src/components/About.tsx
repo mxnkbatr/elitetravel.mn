@@ -1,9 +1,10 @@
 "use client";
 
 import { Contact } from "@/components/Contact";
-import { stays } from "@/components/ResortsPage";
-import { destinations, isBookable, tours } from "@/data/tours";
+import { useStays } from "@/components/ResortsPage";
+import { destinations, isBookable } from "@/data/tours";
 import { cldImage } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { animate, motion, useInView, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,12 +15,16 @@ const img = (n: string) => cldImage(`elitetravel/tours/${n}`);
 
 const collage = [img("tropical-aerial-coast"), img("victoria-peak"), img("nusa-penida-kelingking")];
 
-const stats = [
-  { value: destinations.length, label: "Чиглэл" },
-  { value: tours.filter(isBookable).length, label: "Нээлттэй аялал" },
-  { value: stays.length, label: "Буудал" },
-  { value: 4, label: "Хуваан төлөх апп" },
-];
+function useStats() {
+  const tours = useTours();
+  const stays = useStays();
+  return [
+    { value: destinations.length, label: "Чиглэл" },
+    { value: tours.filter(isBookable).length, label: "Нээлттэй аялал" },
+    { value: stays.length, label: "Буудал" },
+    { value: 4, label: "Хуваан төлөх апп" },
+  ];
+}
 
 const pillars = [
   {
@@ -72,6 +77,7 @@ const fade = {
 };
 
 export function About() {
+  const stats = useStats();
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const yA = useTransform(scrollYProgress, [0, 1], [0, -60]);

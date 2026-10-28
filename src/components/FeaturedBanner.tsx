@@ -1,17 +1,18 @@
 "use client";
 
-import { formatPrice, isBookable, tours } from "@/data/tours";
+import { formatPrice, isBookable } from "@/data/tours";
 import { withTransforms } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const slides = tours.filter(isBookable);
 const INTERVAL_MS = 5000;
 
 /** Auto-rotating featured-tour banner for the phone home; swipe or wait to advance. */
 export function FeaturedBanner() {
+  const slides = useTours().filter(isBookable);
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState(1);
   const [paused, setPaused] = useState(false);

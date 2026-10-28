@@ -27,11 +27,10 @@ try {
     console.log(`✓ ${file}`);
   }
   const { rows } = await client.query(
-    "select column_name, data_type from information_schema.columns where table_name = 'booking_requests' order by ordinal_position",
+    `select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r' order by c.relname`,
   );
-  console.log(`booking_requests: ${rows.length} columns`);
-  const rls = await client.query("select relrowsecurity from pg_class where relname = 'booking_requests'");
-  console.log(`RLS enabled: ${rls.rows[0]?.relrowsecurity}`);
+  for (const r of rows) console.log(`${r.relname}: RLS ${r.relrowsecurity ? "on" : "OFF"}`);
 } finally {
   await client.end();
 }

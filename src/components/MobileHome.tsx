@@ -2,15 +2,14 @@
 
 import { FeaturedBanner } from "@/components/FeaturedBanner";
 import { SaveButton } from "@/components/SaveButton";
-import { formatPrice, getTour, isBookable, tours, type Tour } from "@/data/tours";
+import { formatPrice, getTour, isBookable, type Tour } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { daysUntil } from "@/lib/dates";
 import { useTraveller } from "@/lib/traveller-store";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-const open = tours.filter(isBookable);
 
 const categories = [
   { key: "all", label: "Бүгд", icon: "✦", match: () => true },
@@ -33,6 +32,8 @@ const rise = {
 
 /** Phone home: an app-style start screen instead of the long desktop landing. */
 export function MobileHome() {
+  const tours = useTours();
+  const open = useMemo(() => tours.filter(isBookable), [tours]);
   const { bookings } = useTraveller();
   const [hello, setHello] = useState("Сайн байна уу");
   const [cat, setCat] = useState<(typeof categories)[number]["key"]>("all");
@@ -46,7 +47,7 @@ export function MobileHome() {
         .map((t) => ({ t, days: daysUntil(t.dates) }))
         .filter((x): x is { t: Tour; days: number } => x.days != null && x.days >= 0)
         .sort((a, b) => a.days - b.days),
-    [],
+    [open],
   );
 
   const query = q.trim().toLowerCase();
@@ -56,7 +57,7 @@ export function MobileHome() {
   const filtered = open.filter(categories.find((c) => c.key === cat)!.match);
 
   const next = bookings[0];
-  const nextTour = next ? getTour(next.tourId) : undefined;
+  const nextTour = next ? getTour(tours, next.tourId) : undefined;
   const nextDays = next ? daysUntil(next.date) : null;
 
   return (

@@ -13,8 +13,8 @@ export type NewsItem = {
   readMin: number;
 };
 
-/** Every fact here comes from the tour data synced from elitetravel.mn. */
-export const news: NewsItem[] = [
+/** Initial articles; seeded into the `news` table, which is the live source (edit in /admin). */
+export const seedNews: NewsItem[] = [
   {
     id: "weeknd-departure",
     category: "Мэдээ",

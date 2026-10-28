@@ -1,13 +1,15 @@
 "use client";
 
-import { formatPrice, isBookable, tours } from "@/data/tours";
+import { formatPrice, isBookable } from "@/data/tours";
 import { cldImage } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { useMemo } from "react";
 
 /** Where travellers actually stay, taken from the tour itineraries. */
-export const stays = [
+const hotels = [
   {
     name: "Timton Fuhe Hotel",
     place: "Саняа, Хайнань",
@@ -29,13 +31,24 @@ export const stays = [
     image: cldImage("elitetravel/tours/hongkong-skyline"),
     match: (stay?: string) => stay?.includes("Harbour Plaza"),
   },
-].map((s) => {
-  const linked = tours.filter((t) => isBookable(t) && s.match(t.stay));
-  const from = linked.reduce<number | null>((min, t) => (t.price && (!min || t.price < min) ? t.price : min), null);
-  return { ...s, linked, from };
-});
+];
+
+/** Each hotel with the open tours that stay there and their lowest price. */
+export function useStays() {
+  const tours = useTours();
+  return useMemo(
+    () =>
+      hotels.map((s) => {
+        const linked = tours.filter((t) => isBookable(t) && s.match(t.stay));
+        const from = linked.reduce<number | null>((min, t) => (t.price && (!min || t.price < min) ? t.price : min), null);
+        return { ...s, linked, from };
+      }),
+    [tours],
+  );
+}
 
 export function ResortsPage() {
+  const stays = useStays();
   return (
     <div className="space-y-6">
       {stays.map((s, i) => (

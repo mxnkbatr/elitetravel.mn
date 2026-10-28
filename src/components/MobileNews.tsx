@@ -2,7 +2,8 @@
 
 import { MobileTitle } from "@/components/MobileTitle";
 import { NewsReader, tone } from "@/components/NewsPage";
-import { news, type NewsCategory, type NewsItem } from "@/data/news";
+import type { NewsCategory, NewsItem } from "@/data/news";
+import { useNews } from "@/lib/content";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useState } from "react";
@@ -12,6 +13,7 @@ const icon: Record<NewsCategory, string> = { Мэдээ: "📰", Урамшуу�
 
 /** Phone news: swipeable top stories, sticky category chips, compact rows, sheet reader. */
 export function MobileNews() {
+  const news = useNews();
   const [cat, setCat] = useState<(typeof categories)[number]>("Бүгд");
   const [open, setOpen] = useState<NewsItem | null>(null);
   const featured = news.slice(0, 3);

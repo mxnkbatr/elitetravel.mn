@@ -1,7 +1,8 @@
 "use client";
 
 import { DestinationMap } from "@/components/DestinationMap";
-import { destinations, formatPrice, isBookable, tours } from "@/data/tours";
+import { destinations, formatPrice, isBookable } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,14 +16,10 @@ const flight: Record<string, { time: string; label: string }> = {
   egypt: { time: "—", label: "Нислэг" },
 };
 
-const openTours = tours.filter(isBookable);
-
-function toursFor(key: string) {
-  return openTours.filter((t) => t.destinationKey === key);
-}
-
 /** Full-screen map with an app-style bottom card: swipe or ‹ › between destinations. */
 export function MapExplorer() {
+  const openTours = useTours().filter(isBookable);
+  const toursFor = (key: string) => openTours.filter((t) => t.destinationKey === key);
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState(1);

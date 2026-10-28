@@ -1,27 +1,33 @@
 "use client";
 
-import { destinations, formatPrice, getTour, isBookable, tours } from "@/data/tours";
+import { destinations, formatPrice, getTour, isBookable, type Tour } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { daysUntil } from "@/lib/dates";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-const groups = destinations.map((d) => ({
-  ...d,
-  tours: tours.filter((t) => t.destinationKey === d.key || (d.key === "egypt" && t.id === "shakira-egypt")).filter((t) => t.status !== "ended"),
-}));
+function buildMenu(tours: Tour[]) {
+  const groups = destinations.map((d) => ({
+    ...d,
+    tours: tours.filter((t) => t.destinationKey === d.key || (d.key === "egypt" && t.id === "shakira-egypt")).filter((t) => t.status !== "ended"),
+  }));
 
-const nextUp = tours
-  .filter(isBookable)
-  .map((t) => ({ t, days: daysUntil(t.dates) }))
-  .filter((x) => x.days != null && x.days >= 0)
-  .sort((a, b) => a.days! - b.days!)[0];
+  const nextUp = tours
+    .filter(isBookable)
+    .map((t) => ({ t, days: daysUntil(t.dates) }))
+    .filter((x) => x.days != null && x.days >= 0)
+    .sort((a, b) => a.days! - b.days!)[0];
 
-const promo = getTour("bali");
+  const promo = getTour(tours, "bali");
+  return { groups, nextUp, promo };
+}
 
 /** "Аяллууд" dropdown: pick a destination on the left, its tours fill the middle. */
 export function MegaMenu({ onNavigate }: { onNavigate: () => void }) {
+  const tours = useTours();
+  const { groups, nextUp, promo } = useMemo(() => buildMenu(tours), [tours]);
   const [dest, setDest] = useState(groups[0].key);
   const group = groups.find((g) => g.key === dest) ?? groups[0];
 

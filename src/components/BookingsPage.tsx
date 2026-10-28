@@ -2,7 +2,8 @@
 
 import { bookingMessage } from "@/components/BookingPlanner";
 import { TourCard } from "@/components/TourCard";
-import { formatPrice, getTour, isBookable, tours } from "@/data/tours";
+import { formatPrice, getTour, isBookable } from "@/data/tours";
+import { useTours } from "@/lib/content";
 import { departureOf } from "@/lib/dates";
 import { removeBooking, useTraveller, type BookingRequest } from "@/lib/traveller-store";
 import { AnimatePresence, motion } from "framer-motion";
@@ -37,7 +38,7 @@ function Countdown({ date }: { date?: string }) {
 const steps = ["Хүсэлт үүссэн", "Багт илгээх", "Баг баталгаажуулна", "Урьдчилгаа төлөх"];
 
 function BookingCard({ b }: { b: BookingRequest }) {
-  const tour = getTour(b.tourId);
+  const tour = getTour(useTours(), b.tourId);
   const [copied, setCopied] = useState(false);
   if (!tour) return null;
 
@@ -126,7 +127,8 @@ function BookingCard({ b }: { b: BookingRequest }) {
 export function BookingsPage() {
   const { saved, bookings } = useTraveller();
   const [tab, setTab] = useState<"bookings" | "saved">("bookings");
-  const savedTours = saved.map(getTour).filter((t) => t != null);
+  const tours = useTours();
+  const savedTours = saved.map((id) => getTour(tours, id)).filter((t) => t != null);
   const suggestions = tours.filter((t) => isBookable(t) && !saved.includes(t.id)).slice(0, 3);
 
   const tabs = [

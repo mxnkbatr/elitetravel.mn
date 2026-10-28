@@ -46,7 +46,7 @@ export type Tour = {
   notes?: string[];
 };
 
-export function getTour(id: string) {
+export function getTour(tours: Tour[], id: string) {
   return tours.find((t) => t.id === id);
 }
 
@@ -67,8 +67,8 @@ export function isBookable(t: Tour) {
   return t.tag !== "soon" && t.status !== "ended";
 }
 
-export function relatedTours(tourId: string, limit = 3) {
-  const current = getTour(tourId);
+export function relatedTours(tours: Tour[], tourId: string, limit = 3) {
+  const current = getTour(tours, tourId);
   const pool = tours.filter((t) => t.id !== tourId && t.status !== "ended");
   if (!current) return pool.slice(0, limit);
   const same = pool.filter((t) => t.destinationKey === current.destinationKey);
@@ -217,7 +217,8 @@ const hainanBase = {
   notes: [hainanChildNote],
 };
 
-export const tours: Tour[] = [
+/** Initial catalogue; seeded into the `tours` table, which is the live source (edit in /admin). */
+export const seedTours: Tour[] = [
   {
     id: "weeknd-world-tour",
     title: "The Weeknd: Hong Kong аялал",

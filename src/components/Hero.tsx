@@ -1,15 +1,14 @@
 "use client";
 
-import { formatPrice, isBookable, tours } from "@/data/tours";
+import { formatPrice, isBookable } from "@/data/tours";
 import { INTRO_HOLD_MS } from "@/components/IntroCurtain";
 import { useCanAutoplayVideo } from "@/hooks/useCanAutoplayVideo";
 import { media } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { gsap, registerGsap, useGSAP } from "@/lib/gsap";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-
-const slides = tours.filter(isBookable).slice(0, 6);
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const INTERVAL_MS = 5600;
 const HERO_SEEN = "elite-hero-seen";
@@ -32,6 +31,8 @@ const headline: { text: string; accent?: boolean }[][] = [
 ];
 
 export function Hero() {
+  const tours = useTours();
+  const slides = useMemo(() => tours.filter(isBookable).slice(0, 6), [tours]);
   registerGsap();
   const root = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);

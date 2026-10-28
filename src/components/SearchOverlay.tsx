@@ -1,7 +1,8 @@
 "use client";
 
-import { news } from "@/data/news";
-import { destinations, formatPrice, tours } from "@/data/tours";
+import type { NewsItem } from "@/data/news";
+import { destinations, formatPrice, type Tour } from "@/data/tours";
+import { useNews, useTours } from "@/lib/content";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,7 +24,7 @@ function norm(s: string) {
 
 type Hit = { key: string; href: string; title: string; sub: string; image: string; kind: "Аялал" | "Чиглэл" | "Мэдээ"; price?: string };
 
-const index: Hit[] = [
+const buildIndex = (tours: Tour[], news: NewsItem[]): Hit[] => [
   ...tours
     .filter((t) => t.status !== "ended")
     .map((t) => ({
@@ -57,6 +58,9 @@ const index: Hit[] = [
 ];
 
 export function SearchOverlay() {
+  const tours = useTours();
+  const news = useNews();
+  const index = useMemo(() => buildIndex(tours, news), [tours, news]);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -97,7 +101,7 @@ export function SearchOverlay() {
     const words = norm(q).split(/\s+/).filter(Boolean);
     if (!words.length) return [];
     return (index as (Hit & { text: string })[]).filter((h) => words.every((w) => h.text.includes(w))).slice(0, 12);
-  }, [q]);
+  }, [q, index]);
 
   const groups = (["Аялал", "Чиглэл", "Мэдээ"] as const)
     .map((kind) => ({ kind, items: hits.filter((h) => h.kind === kind) }))

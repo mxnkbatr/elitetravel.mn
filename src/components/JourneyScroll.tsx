@@ -1,11 +1,12 @@
 "use client";
 
-import { destinations, formatPrice, isBookable, tours } from "@/data/tours";
+import { destinations, formatPrice, isBookable, type Tour } from "@/data/tours";
 import { cldImage } from "@/lib/cloudinary";
+import { useTours } from "@/lib/content";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /** Text-free scenery for the stage — the tour posters carry their own lettering. */
 const scenery: Record<string, { cover: string; flight: string; flightLabel: string; poster?: boolean }> = {
@@ -16,7 +17,8 @@ const scenery: Record<string, { cover: string; flight: string; flightLabel: stri
   egypt: { cover: cldImage("elitetravel/tours/shakira-egypt"), flight: "—", flightLabel: "Нислэг", poster: true },
 };
 
-const items = destinations.map((d) => {
+const buildItems = (tours: Tour[]) =>
+  destinations.map((d) => {
   const list = tours.filter((t) => isBookable(t) && t.destinationKey === d.key);
   const from = list.reduce<number | null>((m, t) => (t.price && (!m || t.price < m) ? t.price : m), null);
   const href = list.length === 1 ? `/tours/${list[0].id}` : `/tours?dest=${d.key === "egypt" ? "soon" : d.key}`;
@@ -37,6 +39,8 @@ function Stat({ value, label, accent }: { value: string; label: string; accent?:
 
 /** Destination switcher: a rich list on the left drives a cinematic photo stage. */
 export function JourneyScroll() {
+  const tours = useTours();
+  const items = useMemo(() => buildItems(tours), [tours]);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const cur = items[active];
