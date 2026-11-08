@@ -20,6 +20,10 @@ iOS and Android projects are generated locally with `npx expo prebuild`. This re
 
 `EXPO_PUBLIC_PREVIEW=1` loads a labelled fixture and refuses sign-in, booking and payment calls. Leave it unset for the real app.
 
+## Map
+
+`expo-maps` draws Apple Maps on iOS 18 or newer and Google Maps on Android. The web export has no interactive map. Android map tiles need a Google Maps SDK key in the native project; none is committed. Pins are copied from the website's published coordinates, not from an API. The app does not ask for the phone's location.
+
 ## What talks to the server
 
 - Catalogue: public HTML of `/tours` and `/tours/:id` (there is no public JSON catalogue route).

@@ -26,8 +26,7 @@ export function AccountScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 18, gap: 14 }}>
-      <Text style={{ color: colors.muted, letterSpacing: 2, fontSize: 11, fontWeight: "700" }}>ELITE TRAVEL</Text>
-      <Text style={{ color: colors.text, fontSize: 44, lineHeight: 46, marginTop: -6, fontFamily: fontsReady ? fonts.display : undefined }}>Бүртгэл</Text>
+      <Text style={{ color: colors.text, fontSize: 28, fontFamily: fontsReady ? fonts.display : undefined }}>Профайл</Text>
       {session.error ? <Txt>{session.error}</Txt> : null}
       {session.status === "offline" && session.profile ? <Txt>Сүлжээгүй тул бүртгэл шинэчлэгдсэнгүй. Сүүлд хадгалсан нэрийг харуулж байна.</Txt> : null}
       {session.status === "guest" || (session.status === "offline" && !session.profile) ? (

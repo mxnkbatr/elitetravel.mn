@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { ScrollView, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Banner, cardShadow, Display, GlassBar, Press, RemoteImage, Reveal, ScreenScrollSpacer, StateBlock } from "../components/ui";
 import { COAST_PLATE } from "../lib/config";
 import { formatPrice } from "../lib/money";
-import { isBookable, listedTours } from "../lib/tours";
+import { isBookable, listedTours, searchTours } from "../lib/tours";
 import { useCatalog } from "../state/catalog";
 import { fonts, useTheme } from "../theme";
 
@@ -15,7 +16,9 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { colors, fontsReady } = useTheme();
   const catalog = useCatalog();
+  const [query, setQuery] = useState("");
   const open = listedTours(catalog.tours).filter(isBookable);
+  const results = useMemo(() => (query.trim() ? searchTours(catalog.tours, query) : open), [catalog.tours, open, query]);
 
   if (catalog.status === "loading") return <StateBlock busy title="Аяллыг ачаалж байна" />;
   if (catalog.status === "error") return <StateBlock title="Жагсаалт нээгдсэнгүй" body={catalog.error} action="Дахин" onAction={catalog.refresh} />;
@@ -46,25 +49,25 @@ export function HomeScreen() {
       <Reveal delay={40} style={{ marginTop: -36, paddingHorizontal: 18 }}>
         <GlassBar style={{ height: 56, borderRadius: 28, flexDirection: "row", alignItems: "center", paddingLeft: 16, paddingRight: 6, ...cardShadow }}>
           <Ionicons name="search" size={18} color={colors.dark ? colors.text : "#12312d"} />
-          <Text style={{ flex: 1, marginLeft: 10, color: colors.dark ? colors.text : "#12312d", fontSize: 15 }} onPress={() => router.push("/tours")}>
-            Аялал, чиглэл хайх
-          </Text>
-          <Press label="Хайх" onPress={() => router.push("/tours")} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}>
-            <Ionicons name="arrow-forward" size={18} color="#0a2a26" />
-          </Press>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Аялал, чиглэл хайх"
+            placeholderTextColor={colors.muted}
+            accessibilityLabel="Хайлт"
+            style={{ flex: 1, marginLeft: 10, color: colors.text, fontSize: 15, paddingVertical: 8 }}
+          />
         </GlassBar>
       </Reveal>
       {catalog.preview ? <Banner text="Урьдчилсан харагдац · доорх аяллууд серверийн шууд өгөгдөл биш." /> : null}
       {catalog.offline ? <Banner text="Интернэт алга. Сүүлд уншсан жагсаалтыг харуулж байна." /> : null}
       <Reveal delay={120} style={{ marginTop: 26, paddingHorizontal: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <Display style={{ fontSize: 32, lineHeight: 34, color: colors.text }}>Эрэлттэй аяллууд</Display>
-        <Press label="Бүх аялал" onPress={() => router.push("/tours")}>
-          <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 14 }}>Бүгд</Text>
-        </Press>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>{results.length}</Text>
       </Reveal>
       <Reveal delay={200}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 14, paddingTop: 14, paddingBottom: 8 }}>
-        {open.map((tour) => (
+        {results.map((tour) => (
           <Press scaleTo={0.97} key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={[{ width: 220, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
             <View>
               <RemoteImage uri={tour.image} width={800} height={640} alt={tour.title} style={{ width: 220, height: 148 }} />

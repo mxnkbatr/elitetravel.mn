@@ -66,7 +66,7 @@ export function TripsScreen() {
       }}
       ListFooterComponent={
         <View>
-          <Press label="Аялал үзэх" onPress={() => router.push("/tours")} style={{ marginTop: 8 }}>
+          <Press label="Аялал үзэх" onPress={() => router.push("/")} style={{ marginTop: 8 }}>
             <Text style={{ color: colors.accent, fontWeight: "700" }}>Аялал үзэх</Text>
           </Press>
           <ScreenScrollSpacer />

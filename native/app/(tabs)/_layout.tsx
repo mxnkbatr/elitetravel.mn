@@ -42,10 +42,10 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 10, fontWeight: "700", fontFamily: fontsReady ? "Manrope_600SemiBold" : undefined },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Нүүр", tabBarIcon: ({ color }) => <Ionicons name="home-outline" color={String(color)} size={22} /> }} />
-      <Tabs.Screen name="tours" options={{ title: "Аялал", tabBarIcon: ({ color }) => <Ionicons name="compass-outline" color={String(color)} size={22} /> }} />
+      <Tabs.Screen name="index" options={{ title: "Аялал", tabBarIcon: ({ color }) => <Ionicons name="compass-outline" color={String(color)} size={22} /> }} />
+      <Tabs.Screen name="map" options={{ title: "Газрын зураг", tabBarIcon: ({ color }) => <Ionicons name="map-outline" color={String(color)} size={22} /> }} />
       <Tabs.Screen name="trips" options={{ title: "Захиалга", tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" color={String(color)} size={22} /> }} />
-      <Tabs.Screen name="account" options={{ title: "Бүртгэл", tabBarIcon: ({ color }) => <Ionicons name="person-outline" color={String(color)} size={22} /> }} />
+      <Tabs.Screen name="account" options={{ title: "Профайл", tabBarIcon: ({ color }) => <Ionicons name="person-outline" color={String(color)} size={22} /> }} />
     </Tabs>
   );
 }
