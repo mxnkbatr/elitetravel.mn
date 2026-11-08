@@ -39,7 +39,14 @@ export async function apiRequest(options: RequestOptions) {
   }
   let response: Response;
   try {
-    response = await (options.fetchImpl ?? fetch)(`${options.origin ?? API_ORIGIN}${options.path}`, { method: options.method ?? (body ? "POST" : "GET"), headers, body });
+    response = await (options.fetchImpl ?? fetch)(`${options.origin ?? API_ORIGIN}${options.path}`, {
+      method: options.method ?? (body ? "POST" : "GET"),
+      headers,
+      body,
+      // Expo's iOS fetch turns "include" into URLSession cookie handling, which can hide Set-Cookie.
+      // This app stores the session itself and sends the Cookie header above.
+      credentials: "omit",
+    });
   } catch {
     throw new ApiError(0, "Интернэт холболтоо шалгана уу.");
   }
@@ -52,7 +59,8 @@ export async function apiRequest(options: RequestOptions) {
       parsed = {};
     }
   }
-  const nextCookies = applySetCookies(cookies, readSetCookieHeaders(response.headers));
+  const rawHeaders = (response as { _rawHeaders?: ReadonlyArray<readonly [string, string]> })._rawHeaders;
+  const nextCookies = applySetCookies(cookies, readSetCookieHeaders(response.headers, rawHeaders));
   if (!response.ok) throw new ApiError(response.status, messageFromBody(parsed, "Алдаа гарлаа. Дахин оролдоно уу."));
   return { status: response.status, body: parsed, cookies: nextCookies };
 }

@@ -14,6 +14,16 @@ describe("cookies", () => {
     expect(cookieHeader(jar, now)).toBe("sb-auth=new");
   });
 
+  it("uses each raw Set-Cookie line before a joined header", () => {
+    const headers = { get: () => "joined=1, other=2" };
+    const lines = readSetCookieHeaders(headers, [
+      ["Set-Cookie", "sb-a=1; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/"],
+      ["Content-Type", "application/json"],
+      ["Set-Cookie", "sb-b=2; Path=/"],
+    ]);
+    expect(lines).toEqual(["sb-a=1; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/", "sb-b=2; Path=/"]);
+  });
+
   it("splits combined set-cookie headers without breaking expires commas", () => {
     const headers = { get: () => "a=1; Expires=Sun, 08 Nov 2026 07:00:00 GMT, b=2" };
     expect(readSetCookieHeaders(headers)).toEqual(["a=1; Expires=Sun, 08 Nov 2026 07:00:00 GMT", "b=2"]);

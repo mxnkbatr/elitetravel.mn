@@ -44,9 +44,17 @@ export function cookieHeader(jar: Cookie[], now = Date.now()) {
     .join("; ");
 }
 
-export function readSetCookieHeaders(headers: { get(name: string): string | null; getSetCookie?: () => string[] }) {
+type HeaderSource = { get(name: string): string | null; getSetCookie?: () => string[] };
+
+/**
+ * Prefer separate Set-Cookie lines. Expo's iOS fetch keeps them on `_rawHeaders`.
+ * `Headers` joins duplicates with a comma, which is ambiguous next to an Expires date.
+ */
+export function readSetCookieHeaders(headers: HeaderSource, rawHeaders?: ReadonlyArray<readonly [string, string]>) {
+  const fromPairs = (rawHeaders ?? []).filter(([name]) => name.toLowerCase() === "set-cookie").map(([, value]) => value.trim()).filter(Boolean);
+  if (fromPairs.length) return fromPairs;
   if (typeof headers.getSetCookie === "function") {
-    const list = headers.getSetCookie();
+    const list = headers.getSetCookie().map((line) => line.trim()).filter(Boolean);
     if (list.length) return list;
   }
   const raw = headers.get("set-cookie");

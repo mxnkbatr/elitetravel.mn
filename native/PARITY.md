@@ -19,7 +19,9 @@ Checked against the repository on 8 Nov 2026. No backend routes were added.
 
 ## Explicitly not done
 
-- No iOS simulator or device run in this environment. Passing `tsc` is not an iPhone test. The intro and detail zoom are implemented with React Native's native-driver `Animated` API and the native stack fade, which are supported on iOS and Android, but they were not watched on a device. A static screenshot does not show the motion. The native MapLibre view was typechecked only; camera movement was checked in the browser export, which uses `maplibre-gl`, not the iOS or Android renderer. Mocked auth tests do not send email. The live catalogue check is read-only.
+- A Linux typecheck is not an iPhone test. The intro and detail zoom use React Native's native-driver `Animated` API and were not watched on a device. Browser map screenshots use `maplibre-gl`, not the iOS MapLibre view. Mocked auth tests do not send email. The live catalogue check is read-only.
+- Unsigned iOS compilation is the GitHub Actions workflow `Native iOS simulator` (`.github/workflows/native-ios-simulator.yml`) on `macos-26`. It prebuilds `native/`, runs CocoaPods, and builds the `EliteTravel` scheme for the simulator with code signing off, then launches `mn.elitetravel.app`. It does not use the Capacitor signing secrets and does not upload a build. A result counts only after that workflow run finishes.
+- Expo's default iOS fetch uses `credentials: include`, which turns on `httpShouldHandleCookies` and can hide `Set-Cookie` from JavaScript. Account requests send `credentials: "omit"` and read Expo's `_rawHeaders` lines. That matches the iOS source of Expo SDK 58. It has not been observed against a live verify response on a simulator, and these tests do not call the account API.
 - Push is not registered. The server accepts an FCM token at `/api/push` and sends with Firebase. This Expo app has no Firebase client config, and the Capacitor `GoogleService-Info.plist` was not copied.
 - Contract signature drawing is not implemented. The text is shown. A fake signature is not submitted.
 - PDF document pick is not implemented. JPG and PNG are.
