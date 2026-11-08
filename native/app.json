@@ -1,11 +1,65 @@
 {
-  "plugins": [
-    "expo-router",
-    "expo-status-bar",
-    "expo-splash-screen",
-    "expo-image",
-    "expo-font",
-    "expo-secure-store",
-    "expo-web-browser"
-  ]
+  "expo": {
+    "name": "Elite Travel",
+    "slug": "elite-travel-native",
+    "scheme": "elitetravel",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#e7f2ee",
+    "splash": {
+      "image": "./assets/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b241d"
+    },
+    "ios": {
+      "bundleIdentifier": "mn.elitetravel.native",
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleDisplayName": "Elite Travel",
+        "NSFaceIDUsageDescription": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна.",
+        "NSCameraUsageDescription": "Паспорт болон баримтын зураг авахад камер ашиглана.",
+        "NSPhotoLibraryUsageDescription": "Баримтын зураг сонгоход зургийн сан ашиглана.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "mn.elitetravel.native",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0b241d"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0b241d",
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 180
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Баримтын зураг сонгоход зургийн сан ашиглана.",
+          "cameraPermission": "Паспорт болон баримтын зураг авахад камер ашиглана."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
 }
