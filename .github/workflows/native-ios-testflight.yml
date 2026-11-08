@@ -199,8 +199,21 @@ jobs:
           set -euo pipefail
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" EliteTravel/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" EliteTravel/Info.plist
-          P=EliteTravel.xcodeproj/project.pbxproj
-          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; DEVELOPMENT_TEAM = $TEAM_ID; \"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]\" = \"$PROFILE_UUID\"; \"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Distribution\";/" "$P"
+          python3 - << 'PY'
+          import os
+          path = "EliteTravel.xcodeproj/project.pbxproj"
+          text = open(path).read()
+          team = os.environ["TEAM_ID"]
+          profile = os.environ["PROFILE_UUID"]
+          needle = 'PRODUCT_BUNDLE_IDENTIFIER = "mn.elitetravel.app";'
+          insert = needle + "\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = " + team + ";\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Distribution\";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"" + profile + "\";"
+          if needle not in text:
+              raise SystemExit("App target bundle id was not found in the Xcode project")
+          text = text.replace(needle, insert)
+          text = text.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
+          open(path, "w").write(text)
+          print("Manual distribution signing set on the app target")
+          PY
           compile() {
             xcodebuild archive \
               -workspace EliteTravel.xcworkspace \
@@ -208,6 +221,7 @@ jobs:
               -configuration Release \
               -destination 'generic/platform=iOS' \
               -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
+              DEVELOPMENT_TEAM="$TEAM_ID" \
               MARKETING_VERSION="$MARKETING_VERSION" \
               CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
           }
