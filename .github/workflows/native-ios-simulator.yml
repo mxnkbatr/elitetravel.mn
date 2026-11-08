@@ -6,10 +6,6 @@ name: Native iOS simulator
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "native/**"
-      - ".github/workflows/native-ios-simulator.yml"
 
 concurrency:
   group: native-ios-simulator-${{ github.ref }}
