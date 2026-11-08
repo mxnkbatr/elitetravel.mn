@@ -3,7 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Banner, cardShadow, Display, GlassBar, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
+import { Banner, cardShadow, Display, GlassBar, Press, RemoteImage, Reveal, ScreenScrollSpacer, StateBlock } from "../components/ui";
 import { COAST_PLATE } from "../lib/config";
 import { formatPrice } from "../lib/money";
 import { isBookable, listedTours } from "../lib/tours";
@@ -43,7 +43,7 @@ export function HomeScreen() {
           </Text>
         </View>
       </View>
-      <View style={{ marginTop: -36, paddingHorizontal: 18 }}>
+      <Reveal delay={40} style={{ marginTop: -36, paddingHorizontal: 18 }}>
         <GlassBar style={{ height: 56, borderRadius: 28, flexDirection: "row", alignItems: "center", paddingLeft: 16, paddingRight: 6, ...cardShadow }}>
           <Ionicons name="search" size={18} color={colors.dark ? colors.text : "#12312d"} />
           <Text style={{ flex: 1, marginLeft: 10, color: colors.dark ? colors.text : "#12312d", fontSize: 15 }} onPress={() => router.push("/tours")}>
@@ -53,18 +53,19 @@ export function HomeScreen() {
             <Ionicons name="arrow-forward" size={18} color="#0a2a26" />
           </Press>
         </GlassBar>
-      </View>
+      </Reveal>
       {catalog.preview ? <Banner text="Урьдчилсан харагдац · доорх аяллууд серверийн шууд өгөгдөл биш." /> : null}
       {catalog.offline ? <Banner text="Интернэт алга. Сүүлд уншсан жагсаалтыг харуулж байна." /> : null}
-      <View style={{ marginTop: 26, paddingHorizontal: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <Reveal delay={120} style={{ marginTop: 26, paddingHorizontal: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <Display style={{ fontSize: 32, lineHeight: 34, color: colors.text }}>Эрэлттэй аяллууд</Display>
         <Press label="Бүх аялал" onPress={() => router.push("/tours")}>
           <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 14 }}>Бүгд</Text>
         </Press>
-      </View>
+      </Reveal>
+      <Reveal delay={200}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 14, paddingTop: 14, paddingBottom: 8 }}>
         {open.map((tour) => (
-          <Press key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={[{ width: 220, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
+          <Press scaleTo={0.97} key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={[{ width: 220, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
             <View>
               <RemoteImage uri={tour.image} width={800} height={640} alt={tour.title} style={{ width: 220, height: 148 }} />
               <Text style={{ position: "absolute", top: 12, left: 12, backgroundColor: "rgba(255,255,255,0.94)", color: "#0a2a26", borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: "700" }}>{tour.destination}</Text>
@@ -81,6 +82,7 @@ export function HomeScreen() {
           </Press>
         ))}
       </ScrollView>
+      </Reveal>
       {catalog.news[0] ? (
         <Press label={catalog.news[0].title} onPress={() => router.push({ pathname: "/news/[id]", params: { id: catalog.news[0].id } })} style={[{ marginHorizontal: 22, marginTop: 18, borderRadius: 28, overflow: "hidden", height: 168 }, cardShadow]}>
           <RemoteImage uri={catalog.news[0].image} width={1000} height={600} alt="" style={{ width: "100%", height: "100%" }} />

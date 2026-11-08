@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cardShadow, GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
 import { API_ORIGIN, INSTAGRAM, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
 import { formatPrice } from "../lib/money";
 import { isBookable, relatedTours, seatHint } from "../lib/tours";
+import { detailEntrance } from "../motion/detail";
 import { useCatalog } from "../state/catalog";
 import { useSession } from "../state/session";
 import { fonts, useTheme } from "../theme";
@@ -23,6 +24,23 @@ export function TourScreen() {
   const tourId = typeof id === "string" ? id : "";
   const tour = catalog.tourById(tourId);
   const [missing, setMissing] = useState(false);
+  const heroScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((reduced) => {
+        if (!live) return;
+        const entrance = detailEntrance(reduced);
+        if (entrance.duration === 0) return;
+        heroScale.setValue(entrance.fromScale);
+        Animated.timing(heroScale, { toValue: 1, duration: entrance.duration, useNativeDriver: true }).start();
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [heroScale, tourId]);
 
   useEffect(() => {
     if (!tourId) return;
@@ -42,10 +60,10 @@ export function TourScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <View style={{ height: 420 }}>
+        <Animated.View style={{ height: 420, transform: [{ scale: heroScale }] }}>
           <RemoteImage uri={hero} width={1400} height={1600} alt={tour.title} style={{ width: "100%", height: "100%" }} />
           <LinearGradient colors={["rgba(5,22,20,0.28)", "rgba(5,22,20,0)", colors.bg]} locations={[0, 0.45, 1]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
-        </View>
+        </Animated.View>
         <View style={{ paddingHorizontal: 20, marginTop: -72 }}>
           <Text style={{ color: colors.accent, fontWeight: "700", letterSpacing: 1.6, fontSize: 12 }}>{tour.destination.toUpperCase()}</Text>
           <Text style={{ color: colors.text, fontSize: 40, lineHeight: 42, marginTop: 4, fontFamily: fontsReady ? fonts.display : undefined }}>{tour.title}</Text>

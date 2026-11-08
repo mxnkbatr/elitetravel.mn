@@ -13,10 +13,11 @@ Checked against the repository on 8 Nov 2026. No backend routes were added.
 - Saved tours sync with `PATCH /api/account` while signed in.
 - Loading, empty, error and offline states. The last successful catalogue is kept on device.
 - Mongolian UI. Brand colours and the public Cloudinary photos.
+- Motion, in code: a skippable intro after the static native splash (logo, then a coast photo zoom, then a fade into the app). It runs once per JS runtime, not on tab changes or foregrounding, and does not wait for the network. Reduced motion is a short fade with no zoom. Tour detail fades in and out through the native stack (`fade`, iOS and Android) and the hero scales from 1.06 to 1 with the native animation driver. That is not a shared-element transition. Cards use a press scale. Home sections rise in sequence unless reduced motion is on.
 
 ## Explicitly not done
 
-- No iOS simulator or device run in this environment. Passing `tsc` is not an iPhone test. Mocked auth tests do not send email. The live catalogue check is read-only.
+- No iOS simulator or device run in this environment. Passing `tsc` is not an iPhone test. The intro and detail zoom are implemented with React Native's native-driver `Animated` API and the native stack fade, which are supported on iOS and Android, but they were not watched on a device. A static screenshot does not show the motion. Mocked auth tests do not send email. The live catalogue check is read-only.
 - Push is not registered. The server accepts an FCM token at `/api/push` and sends with Firebase. This Expo app has no Firebase client config, and the Capacitor `GoogleService-Info.plist` was not copied.
 - Contract signature drawing is not implemented. The text is shown. A fake signature is not submitted.
 - PDF document pick is not implemented. JPG and PNG are.

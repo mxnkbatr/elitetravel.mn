@@ -6,6 +6,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { View } from "react-native";
+import { Intro } from "../src/components/Intro";
 import { CatalogProvider } from "../src/state/catalog";
 import { DeviceBookingsProvider } from "../src/state/device-bookings";
 import { SessionProvider } from "../src/state/session";
@@ -18,14 +20,18 @@ function Root() {
   return (
     <>
       <StatusBar style={colors.dark ? "light" : "dark"} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="tour/[id]" />
-        <Stack.Screen name="book/[id]" />
-        <Stack.Screen name="trip/[id]" />
-        <Stack.Screen name="news/[id]" />
-        <Stack.Screen name="auth" options={{ presentation: "modal" }} />
-      </Stack>
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="(tabs)" />
+          {/* Fade in and out. The hero also scales itself. This is not a shared-element transition. */}
+          <Stack.Screen name="tour/[id]" options={{ animation: "fade", animationDuration: 380 }} />
+          <Stack.Screen name="book/[id]" options={{ animation: "fade", animationDuration: 320 }} />
+          <Stack.Screen name="trip/[id]" options={{ animation: "fade", animationDuration: 320 }} />
+          <Stack.Screen name="news/[id]" options={{ animation: "fade", animationDuration: 320 }} />
+          <Stack.Screen name="auth" options={{ presentation: "modal", animation: "fade_from_bottom" }} />
+        </Stack>
+        <Intro />
+      </View>
     </>
   );
 }

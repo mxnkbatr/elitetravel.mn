@@ -4,7 +4,8 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, type ImageStyle, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { useEffect, useRef } from "react";
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, TextInput, View, type ImageStyle, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { imageUrl } from "../lib/money";
 import { fonts, useTheme } from "../theme";
@@ -27,7 +28,7 @@ export function Txt({ children, style, muted }: { children: ReactNode; style?: S
   return <Text style={[{ color: muted ? colors.muted : colors.text, fontSize: 15, lineHeight: 22 }, fontsReady && { fontFamily: fonts.sans }, style]}>{children}</Text>;
 }
 
-export function Press({ children, onPress, style, disabled, label }: { children: ReactNode; onPress?: () => void; style?: StyleProp<ViewStyle>; disabled?: boolean; label: string }) {
+export function Press({ children, onPress, style, disabled, label, scaleTo = 0.985 }: { children: ReactNode; onPress?: () => void; style?: StyleProp<ViewStyle>; disabled?: boolean; label: string; scaleTo?: number }) {
   const { reduceMotion } = useTheme();
   return (
     <Pressable
@@ -38,11 +39,32 @@ export function Press({ children, onPress, style, disabled, label }: { children:
         if (!reduceMotion) haptic();
         onPress?.();
       }}
-      style={({ pressed }) => [style, pressed && !reduceMotion && { opacity: 0.86, transform: [{ scale: 0.985 }] }, disabled && { opacity: 0.45 }]}
+      style={({ pressed }) => [style, pressed && !reduceMotion && { opacity: 0.92, transform: [{ scale: scaleTo }] }, disabled && { opacity: 0.45 }]}
     >
       {children}
     </Pressable>
   );
+}
+
+/** Opacity and a short rise. Reduced motion stays still. Native driver only. */
+export function Reveal({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
+  const { reduceMotion } = useTheme();
+  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const rise = useRef(new Animated.Value(reduceMotion ? 0 : 16)).current;
+  useEffect(() => {
+    if (reduceMotion) {
+      opacity.setValue(1);
+      rise.setValue(0);
+      return;
+    }
+    const animation = Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 460, delay, useNativeDriver: true }),
+      Animated.timing(rise, { toValue: 0, duration: 460, delay, useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [delay, opacity, reduceMotion, rise]);
+  return <Animated.View style={[style, { opacity, transform: [{ translateY: rise }] }]}>{children}</Animated.View>;
 }
 
 export function RemoteImage({ uri, width, height, style, alt }: { uri: string; width: number; height?: number; style?: StyleProp<ImageStyle>; alt: string }) {
