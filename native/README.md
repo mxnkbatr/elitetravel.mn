@@ -22,7 +22,11 @@ iOS and Android projects are generated locally with `npx expo prebuild`. This re
 
 ## Map
 
-`expo-maps` draws Apple Maps on iOS 18 or newer and Google Maps on Android. The web export has no interactive map. Android map tiles need a Google Maps SDK key in the native project; none is committed. Pins are copied from the website's published coordinates, not from an API. The app does not ask for the phone's location.
+The device map is MapLibre Native (`@maplibre/maplibre-react-native`) with the same keyless style as the website, `https://tiles.openfreemap.org/styles/positron`. `expo-maps` is not used: its readme requires iOS 18, and Android tiles need a Google Maps key this repo does not have. No tile credential and no device-location permission are added. The Android location engine in the config plugin is the library default, not Google Play Services.
+
+Pins, flight arcs, names, blurbs and flight labels are copied from the website map. Unknown destination keys are not plotted. Choosing a destination, or the ‹ › card, moves the camera to that published route and updates the card (flight label, tour count, starting price from the loaded catalogue).
+
+The web export draws the same style with `maplibre-gl` so the browser can show the map. That is not an iOS or Android screenshot. `public/maplibre-gl-worker.mjs` and `public/maplibre-gl.css` are copies of the installed `maplibre-gl` 6.17.0 files. If the style does not load, the screen keeps the destination card and shows the coordinate list.
 
 ## What talks to the server
 

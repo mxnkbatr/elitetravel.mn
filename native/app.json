@@ -57,7 +57,14 @@
           "cameraPermission": "Паспорт болон баримтын зураг авахад камер ашиглана."
         }
       ],
-      ["expo-maps", { "requestLocationPermission": false }]
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": {
+            "locationEngine": "default"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

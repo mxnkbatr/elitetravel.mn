@@ -1,51 +1,79 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/theme";
 
-function TabBackground() {
-  const { colors } = useTheme();
+type DockProps = {
+  state: { index: number; routes: { key: string; name: string }[] };
+  navigateToTab: (routeKey: string) => void;
+};
+
+const TABS = [
+  { name: "index", label: "Аялал", icon: "compass" },
+  { name: "map", label: "Газрын зураг", icon: "map" },
+  { name: "trips", label: "Захиалга", icon: "calendar" },
+  { name: "account", label: "Профайл", icon: "person" },
+] as const;
+
+function Dock({ state, navigateToTab }: DockProps) {
+  const insets = useSafeAreaInsets();
+  const { colors, fontsReady } = useTheme();
   return (
-    <View style={[StyleSheet.absoluteFill, { borderRadius: 30, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}>
-      <BlurView intensity={70} tint={colors.dark ? "dark" : "light"} experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glass }]} />
+    <View
+      accessibilityRole="tablist"
+      style={{
+        position: "absolute",
+        left: 16,
+        right: 16,
+        bottom: Math.max(insets.bottom, 10),
+        height: 68,
+        borderRadius: 34,
+        backgroundColor: colors.dark ? "rgba(15,36,33,0.94)" : "rgba(255,252,247,0.96)",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-around",
+        shadowColor: "#062a2a",
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 8,
+      }}
+    >
+      {state.routes.map((route, index) => {
+        const meta = TABS.find((tab) => tab.name === route.name);
+        if (!meta) return null;
+        const focused = state.index === index;
+        const icon = (focused ? meta.icon : `${meta.icon}-outline`) as keyof typeof Ionicons.glyphMap;
+        return (
+          <Pressable
+            key={route.key}
+            accessibilityRole="tab"
+            accessibilityLabel={meta.label}
+            accessibilityState={{ selected: focused }}
+            onPress={() => {
+              if (!focused) navigateToTab(route.key);
+            }}
+            style={{ minWidth: 68, minHeight: 52, alignItems: "center", justifyContent: "center" }}
+          >
+            <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: focused ? "#0a2a26" : "transparent" }}>
+              <Ionicons name={icon} size={18} color={focused ? "#ffffff" : colors.muted} />
+            </View>
+            <Text style={{ marginTop: 2, fontSize: 10, fontWeight: "700", color: focused ? colors.text : colors.muted, fontFamily: fontsReady ? "Manrope_600SemiBold" : undefined }}>{meta.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
-  const { colors, fontsReady } = useTheme();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          position: "absolute",
-          marginHorizontal: 14,
-          bottom: Math.max(insets.bottom, 10),
-          height: 66,
-          borderRadius: 30,
-          backgroundColor: "transparent",
-          borderTopWidth: 0,
-          elevation: 8,
-          shadowColor: "#062a2a",
-          shadowOpacity: 0.14,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 8 },
-        },
-        tabBarBackground: () => <TabBackground />,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", fontFamily: fontsReady ? "Manrope_600SemiBold" : undefined },
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: "Аялал", tabBarIcon: ({ color }) => <Ionicons name="compass-outline" color={String(color)} size={22} /> }} />
-      <Tabs.Screen name="map" options={{ title: "Газрын зураг", tabBarIcon: ({ color }) => <Ionicons name="map-outline" color={String(color)} size={22} /> }} />
-      <Tabs.Screen name="trips" options={{ title: "Захиалга", tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" color={String(color)} size={22} /> }} />
-      <Tabs.Screen name="account" options={{ title: "Профайл", tabBarIcon: ({ color }) => <Ionicons name="person-outline" color={String(color)} size={22} /> }} />
+    <Tabs tabBar={(props) => <Dock state={props.state} navigateToTab={props.navigateToTab} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="index" options={{ title: "Аялал" }} />
+      <Tabs.Screen name="map" options={{ title: "Газрын зураг" }} />
+      <Tabs.Screen name="trips" options={{ title: "Захиалга" }} />
+      <Tabs.Screen name="account" options={{ title: "Профайл" }} />
     </Tabs>
   );
 }

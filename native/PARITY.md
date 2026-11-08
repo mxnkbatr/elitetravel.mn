@@ -4,12 +4,13 @@ Checked against the repository on 8 Nov 2026. No backend routes were added.
 
 ## Finished in this app
 
-- Native tab navigation: Нүүр, Аялал, Захиалга, Бүртгэл, plus tour, booking, trip, news and sign-in screens. Components are React Native, not a WebView.
+- Native screens for the four tabs, plus tour, booking, trip, news and sign-in. Components are React Native, not a WebView of the website. The map is MapLibre Native on device and MapLibre GL in the web export.
 - Home, search and tour detail read the live public pages. Ended departures stay out of the list, matching the website.
 - Booking request form uses the same party, phone and date checks as `POST /api/bookings`. The confirmation screen shows only the id, total, deposit and status the server returns. A failed request is not stored as a booking.
 - Account sign-in and registration use the existing routes. `POST /api/account/code` creates the traveller when the email is new; there is no separate registration call. Нэвтрэх sends only the email and code. Бүртгүүлэх also requires a name. The app stays signed out if the code is wrong or expired, the network fails, or the response has no `sb-` session cookie. A cached profile remains visible while offline. 401 clears the session. Logout clears this device even if the server is unreachable, and says so. Deletion is refused while offline. Face ID uses `/api/account/device` and `/api/account/device/login`. The key is removed only when the server says it expired. A Capacitor key does not transfer. Session cookies stay in secure storage.
 - Bottom dock is exactly Аялал, Газрын зураг, Захиалга, Профайл. Аялал is the first screen and includes search.
-- Map pins are the four coordinates published in the website map component. The backend does not send coordinates. Unknown destination keys are not plotted. Interactive Apple Maps (iOS 18+) and Google Maps (Android) come from `expo-maps`. Android tiles need a Google Maps key in the native build, which is not in this repo. The web preview shows the pin list and Apple Maps links only. The app does not request the user's location.
+- Map pins, arcs, names and flight labels are the ones published in the website map. The backend does not send coordinates. Unknown keys are not plotted. iOS and Android use MapLibre Native and the website's keyless OpenFreeMap style. `expo-maps` was removed because it requires iOS 18 and does not draw those arcs; Android would also need a Google Maps key, which is not committed. The app does not request the phone's location. The web export uses `maplibre-gl` with the same style and coordinates. If that style fails to load, the destination card stays and a coordinate list is shown. A browser screenshot of the web export is not a device recording of the native MapLibre view.
+- Миний аялал lists device booking requests, plus the signed-in account's bookings. A network or signed-out failure is not shown as a successful empty list. Saved tours are stored on this device and copied to the account with `PATCH /api/account` after sign-in. The saved count is only tours found in the loaded catalogue.
 - Trip screen: messages, QPay invoice hand-off in the system browser, status refresh, passenger text, document image upload, emergency contact, contract text.
 - Saved tours sync with `PATCH /api/account` while signed in.
 - Loading, empty, error and offline states. The last successful catalogue is kept on device.
@@ -18,7 +19,7 @@ Checked against the repository on 8 Nov 2026. No backend routes were added.
 
 ## Explicitly not done
 
-- No iOS simulator or device run in this environment. Passing `tsc` is not an iPhone test. The intro and detail zoom are implemented with React Native's native-driver `Animated` API and the native stack fade, which are supported on iOS and Android, but they were not watched on a device. A static screenshot does not show the motion. Mocked auth tests do not send email. The live catalogue check is read-only.
+- No iOS simulator or device run in this environment. Passing `tsc` is not an iPhone test. The intro and detail zoom are implemented with React Native's native-driver `Animated` API and the native stack fade, which are supported on iOS and Android, but they were not watched on a device. A static screenshot does not show the motion. The native MapLibre view was typechecked only; camera movement was checked in the browser export, which uses `maplibre-gl`, not the iOS or Android renderer. Mocked auth tests do not send email. The live catalogue check is read-only.
 - Push is not registered. The server accepts an FCM token at `/api/push` and sends with Firebase. This Expo app has no Firebase client config, and the Capacitor `GoogleService-Info.plist` was not copied.
 - Contract signature drawing is not implemented. The text is shown. A fake signature is not submitted.
 - PDF document pick is not implemented. JPG and PNG are.

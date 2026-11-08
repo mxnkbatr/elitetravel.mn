@@ -24,6 +24,7 @@ export function TourScreen() {
   const tourId = typeof id === "string" ? id : "";
   const tour = catalog.tourById(tourId);
   const [missing, setMissing] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
   const heroScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -55,7 +56,8 @@ export function TourScreen() {
   const bookable = isBookable(tour);
   const saved = session.saved.includes(tour.id);
   const seats = seatHint(catalog.seats, tour.id);
-  const hero = tour.gallery?.[1] || tour.gallery?.[0] || tour.image;
+  const gallery = tour.gallery ?? [];
+  const hero = photo || gallery[0] || tour.image;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -63,6 +65,15 @@ export function TourScreen() {
         <Animated.View style={{ height: 420, transform: [{ scale: heroScale }] }}>
           <RemoteImage uri={hero} width={1400} height={1600} alt={tour.title} style={{ width: "100%", height: "100%" }} />
           <LinearGradient colors={["rgba(5,22,20,0.28)", "rgba(5,22,20,0)", colors.bg]} locations={[0, 0.45, 1]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+          {gallery.length > 1 ? (
+            <View style={{ position: "absolute", right: 14, top: 72, gap: 8 }}>
+              {gallery.slice(0, 4).map((uri) => (
+                <Press key={uri} label="Зургийн цомог" onPress={() => setPhoto(uri)} style={{ width: 52, height: 52, borderRadius: 14, overflow: "hidden", borderWidth: hero === uri ? 2 : 0, borderColor: "white" }}>
+                  <RemoteImage uri={uri} width={160} height={160} alt="" style={{ width: 52, height: 52 }} />
+                </Press>
+              ))}
+            </View>
+          ) : null}
         </Animated.View>
         <View style={{ paddingHorizontal: 20, marginTop: -72 }}>
           <Text style={{ color: colors.accent, fontWeight: "700", letterSpacing: 1.6, fontSize: 12 }}>{tour.destination.toUpperCase()}</Text>
@@ -152,8 +163,8 @@ export function TourScreen() {
           <Text style={{ color: colors.text, fontSize: 20, fontWeight: "700" }}>{formatPrice(tour.price)}</Text>
         </View>
         {bookable ? (
-          <Press label="Захиалах" onPress={() => router.push({ pathname: "/book/[id]", params: { id: tour.id } })} style={{ height: 52, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: colors.onAccent, fontWeight: "700", fontSize: 16 }}>Захиалах</Text>
+          <Press label="Захиалах" onPress={() => router.push({ pathname: "/book/[id]", params: { id: tour.id } })} style={{ height: 52, paddingHorizontal: 22, borderRadius: 26, backgroundColor: "#0a2a26", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 16 }}>Захиалах</Text>
           </Press>
         ) : (
           <Press label="Залгах" onPress={() => void Linking.openURL(PHONE_TEL)} style={{ height: 52, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>

@@ -29,7 +29,7 @@ export type Palette = {
 
 const light: Palette = {
   dark: false,
-  bg: "#e7f2ee",
+  bg: "#f3f6f1",
   bgSoft: "#f7fbf9",
   text: "#0a2a26",
   muted: "#527169",

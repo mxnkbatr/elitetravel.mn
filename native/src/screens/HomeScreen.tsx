@@ -17,8 +17,17 @@ export function HomeScreen() {
   const { colors, fontsReady } = useTheme();
   const catalog = useCatalog();
   const [query, setQuery] = useState("");
+  const [chip, setChip] = useState("all");
   const open = listedTours(catalog.tours).filter(isBookable);
-  const results = useMemo(() => (query.trim() ? searchTours(catalog.tours, query) : open), [catalog.tours, open, query]);
+  const chips = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const tour of open) if (tour.destinationKey) names.set(tour.destinationKey, tour.destination);
+    return [...names.entries()];
+  }, [open]);
+  const results = useMemo(() => {
+    const found = query.trim() ? searchTours(catalog.tours, query) : open;
+    return chip === "all" ? found : found.filter((tour) => tour.destinationKey === chip);
+  }, [catalog.tours, chip, open, query]);
 
   if (catalog.status === "loading") return <StateBlock busy title="Аяллыг ачаалж байна" />;
   if (catalog.status === "error") return <StateBlock title="Жагсаалт нээгдсэнгүй" body={catalog.error} action="Дахин" onAction={catalog.refresh} />;
@@ -65,27 +74,28 @@ export function HomeScreen() {
         <Display style={{ fontSize: 32, lineHeight: 34, color: colors.text }}>Эрэлттэй аяллууд</Display>
         <Text style={{ color: colors.muted, fontSize: 13 }}>{results.length}</Text>
       </Reveal>
-      <Reveal delay={200}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, gap: 14, paddingTop: 14, paddingBottom: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingTop: 8 }}>
+        {[["all", "Бүгд"], ...chips].map(([key, label]) => (
+          <Press key={key} label={label} onPress={() => setChip(key)} style={{ minHeight: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: chip === key ? "#0a2a26" : colors.card }}>
+            <Text style={{ color: chip === key ? "#ffffff" : colors.text, fontWeight: "700", fontSize: 13 }}>{label}</Text>
+          </Press>
+        ))}
+      </ScrollView>
+      <View style={{ paddingHorizontal: 20, paddingTop: 14, gap: 16 }}>
         {results.map((tour) => (
-          <Press scaleTo={0.97} key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={[{ width: 220, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
-            <View>
-              <RemoteImage uri={tour.image} width={800} height={640} alt={tour.title} style={{ width: 220, height: 148 }} />
-              <Text style={{ position: "absolute", top: 12, left: 12, backgroundColor: "rgba(255,255,255,0.94)", color: "#0a2a26", borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: "700" }}>{tour.destination}</Text>
-              {tour.discount ? <Text style={{ position: "absolute", top: 12, right: 12, backgroundColor: colors.accent, color: "white", borderRadius: 999, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 5, fontSize: 11, fontWeight: "700" }}>{tour.discount}</Text> : null}
-            </View>
-            <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, minHeight: 108 }}>
-              <Text style={{ color: colors.text, fontSize: 22, lineHeight: 24, fontFamily: fontsReady ? fonts.display : undefined }} numberOfLines={2}>{tour.title}</Text>
-              <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6, lineHeight: 16 }}>{[tour.duration, tour.dates].filter(Boolean).join(" · ")}</Text>
-              <View style={{ marginTop: 8 }}>
-                {tour.oldPrice ? <Text style={{ color: "#7d948d", textDecorationLine: "line-through", fontSize: 12, marginBottom: 2 }}>{formatPrice(tour.oldPrice)}</Text> : null}
-                <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 17 }}>{formatPrice(tour.price)}</Text>
+          <Press scaleTo={0.98} key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={[{ height: 280, borderRadius: 28, overflow: "hidden", backgroundColor: colors.card }, cardShadow]}>
+            <RemoteImage uri={tour.image} width={1000} height={800} alt={tour.title} style={{ width: "100%", height: "100%" }} />
+            <View style={{ position: "absolute", left: 12, right: 12, bottom: 12, backgroundColor: "rgba(255,252,247,0.94)", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 12 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "700" }}>{tour.destination}</Text>
+              <Text style={{ color: colors.text, fontSize: 24, lineHeight: 26, fontFamily: fontsReady ? fonts.display : undefined }} numberOfLines={2}>{tour.title}</Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 6 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, flex: 1 }} numberOfLines={1}>{[tour.duration, tour.dates].filter(Boolean).join(" · ")}</Text>
+                <Text style={{ color: "#0a2a26", fontWeight: "700", fontSize: 16 }}>{formatPrice(tour.price)}</Text>
               </View>
             </View>
           </Press>
         ))}
-      </ScrollView>
-      </Reveal>
+      </View>
       {catalog.news[0] ? (
         <Press label={catalog.news[0].title} onPress={() => router.push({ pathname: "/news/[id]", params: { id: catalog.news[0].id } })} style={[{ marginHorizontal: 22, marginTop: 18, borderRadius: 28, overflow: "hidden", height: 168 }, cardShadow]}>
           <RemoteImage uri={catalog.news[0].image} width={1000} height={600} alt="" style={{ width: "100%", height: "100%" }} />
