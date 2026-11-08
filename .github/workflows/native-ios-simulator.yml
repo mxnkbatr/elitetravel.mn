@@ -82,7 +82,13 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             build | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 120
-          test -d "$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app/main.jsbundle"
+          APP="$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app"
+          if [[ ! -f "$APP/main.jsbundle" ]]; then
+            echo "main.jsbundle missing after a successful build. App files:"
+            find "$APP" -maxdepth 3 -type f | head -80
+            exit 1
+          fi
+          echo "Embedded bundle: $APP/main.jsbundle"
 
       - name: Launch on a simulator
         working-directory: native
