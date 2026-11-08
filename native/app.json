@@ -21,6 +21,7 @@
         "NSFaceIDUsageDescription": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна.",
         "NSCameraUsageDescription": "Паспорт болон баримтын зураг авахад камер ашиглана.",
         "NSPhotoLibraryUsageDescription": "Баримтын зураг сонгоход зургийн сан ашиглана.",
+        "NSLocationWhenInUseUsageDescription": "Elite Travel does not request or use your location. The linked map library references Core Location, so iOS requires this text. The app never asks for location permission.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

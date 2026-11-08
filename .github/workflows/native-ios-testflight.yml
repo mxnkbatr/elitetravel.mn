@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   upload:
+    if: hashFiles('native/UPLOAD_TESTFLIGHT') != ''
     runs-on: macos-26
     timeout-minutes: 90
     permissions:
@@ -257,6 +258,20 @@ jobs:
             exit 1
           fi
           echo "Archive contains the JS bundle and splash screen for $MARKETING_VERSION ($BUILD_NUMBER)."
+          echo "Privacy purpose strings in the archived Info.plist:"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSFaceIDUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$APP/Info.plist"
+          if /usr/libexec/PlistBuddy -c 'Print :NSLocationAlwaysUsageDescription' "$APP/Info.plist" >/dev/null 2>&1; then
+            echo "Unexpected always-location purpose string is present."
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy -c 'Print :NSLocationAlwaysAndWhenInUseUsageDescription' "$APP/Info.plist" >/dev/null 2>&1; then
+            echo "Unexpected always-location purpose string is present."
+            exit 1
+          fi
 
       - name: Export and upload
         env:

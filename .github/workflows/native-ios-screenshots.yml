@@ -5,9 +5,6 @@ name: Native iOS screenshots
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/native-ios-screenshots.yml"
 
 jobs:
   screenshots:
