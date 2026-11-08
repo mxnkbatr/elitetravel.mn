@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "mn.elitetravel.app",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "Elite Travel",
         "NSFaceIDUsageDescription": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна.",

@@ -220,6 +220,7 @@ jobs:
           text = text.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
           # The approved 1.2 app supports iPad. An update cannot drop that device family.
           text = text.replace('TARGETED_DEVICE_FAMILY = "1";', 'TARGETED_DEVICE_FAMILY = "1,2";')
+          text = text.replace('TARGETED_DEVICE_FAMILY = 1;', 'TARGETED_DEVICE_FAMILY = "1,2";')
           open(path, "w").write(text)
           print(f"Manual distribution signing set on {len(matches)} app target configurations")
           PY
@@ -231,6 +232,7 @@ jobs:
               -destination 'generic/platform=iOS' \
               -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
               DEVELOPMENT_TEAM="$TEAM_ID" \
+              TARGETED_DEVICE_FAMILY="1,2" \
               MARKETING_VERSION="$MARKETING_VERSION" \
               CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
           }
