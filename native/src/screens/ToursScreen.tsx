@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Banner, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
+import { Banner, cardShadow, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
 import { formatPrice } from "../lib/money";
 import { searchTours, seatHint } from "../lib/tours";
 import { useCatalog } from "../state/catalog";
@@ -40,11 +40,12 @@ export function ToursScreen() {
       refreshing={false}
       onRefresh={catalog.refresh}
       ListHeaderComponent={
-        <View style={{ gap: 12, marginBottom: 14 }}>
-          <Text style={{ color: colors.text, fontSize: 40, fontFamily: fontsReady ? fonts.display : undefined }}>Аяллууд</Text>
+        <View style={{ gap: 14, marginBottom: 8 }}>
+          <Text style={{ color: colors.muted, letterSpacing: 2, fontSize: 11, fontWeight: "700" }}>EXPLORE</Text>
+          <Text style={{ color: colors.text, fontSize: 42, lineHeight: 44, marginTop: -8, fontFamily: fontsReady ? fonts.display : undefined }}>Аяллууд</Text>
           {catalog.preview ? <Banner text="Урьдчилсан харагдац. Хайлт энэ жагсаалт дотор." /> : null}
           {catalog.offline ? <Banner text="Сүлжээгүй. Сүүлд хадгалсан жагсаалт." /> : null}
-          <TextInput value={query} onChangeText={setQuery} placeholder="Аялал, чиглэл хайх" placeholderTextColor={colors.muted} accessibilityLabel="Хайлт" style={{ backgroundColor: colors.card, color: colors.text, borderRadius: 18, minHeight: 52, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} />
+          <TextInput value={query} onChangeText={setQuery} placeholder="Аялал, чиглэл хайх" placeholderTextColor={colors.muted} accessibilityLabel="Хайлт" style={[{ backgroundColor: colors.card, color: colors.text, borderRadius: 22, minHeight: 54, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.line, fontSize: 16 }, cardShadow]} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {[["all", "Бүгд"], ...destinations, ["soon", "Удахгүй"]].map(([key, label]) => (
               <Press key={key} label={label} onPress={() => setFilter(key)} style={{ paddingHorizontal: 12, minHeight: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: filter === key ? colors.accent : colors.card }}>
@@ -54,17 +55,26 @@ export function ToursScreen() {
           </View>
         </View>
       }
-      ListEmptyComponent={<Text style={{ color: colors.muted, paddingVertical: 24 }}>Тохирох аялал алга.</Text>}
+      ListEmptyComponent={
+        <View style={[{ marginTop: 18, backgroundColor: colors.card, borderRadius: 24, padding: 22 }, cardShadow]}>
+          <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Тохирох аялал алга</Text>
+          <Text style={{ color: colors.muted, marginTop: 8, lineHeight: 20 }}>Өөр үг эсвэл чиглэл сонгоно уу.</Text>
+        </View>
+      }
       renderItem={({ item }) => {
         const seats = seatHint(catalog.seats, item.id);
         return (
-          <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })} style={{ marginBottom: 14, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }}>
-            <RemoteImage uri={item.image} width={1000} height={700} alt={item.title} style={{ width: "100%", height: 190 }} />
-            <View style={{ padding: 16, gap: 4 }}>
-              <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "700" }}>{item.destination}</Text>
-              <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>{item.title}</Text>
-              <Text style={{ color: colors.muted }}>{[item.duration, item.dates].filter(Boolean).join(" · ")}</Text>
-              <Text style={{ color: colors.accent, fontSize: 18, fontWeight: "700", marginTop: 6 }}>{formatPrice(item.price)}</Text>
+          <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })} style={[{ marginBottom: 16, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
+            <View>
+              <RemoteImage uri={item.image} width={1000} height={720} alt={item.title} style={{ width: "100%", height: 210 }} />
+              <Text style={{ position: "absolute", left: 14, top: 14, backgroundColor: "rgba(255,255,255,0.94)", color: "#0a2a26", borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.destination}</Text>
+              {item.discount ? <Text style={{ position: "absolute", right: 14, top: 14, backgroundColor: colors.accent, color: "white", borderRadius: 999, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.discount}</Text> : null}
+            </View>
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 4 }}>
+              <Text style={{ color: colors.text, fontSize: 28, lineHeight: 30, fontFamily: fontsReady ? fonts.display : undefined }}>{item.title}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>{[item.duration, item.dates].filter(Boolean).join(" · ")}</Text>
+              {item.oldPrice ? <Text style={{ color: "#7d948d", textDecorationLine: "line-through", marginTop: 8 }}>{formatPrice(item.oldPrice)}</Text> : null}
+              <Text style={{ color: colors.accent, fontSize: 20, fontWeight: "700" }}>{formatPrice(item.price)}</Text>
               {seats ? <Text style={{ color: colors.gold, fontWeight: "700" }}>{seats}</Text> : null}
             </View>
           </Press>

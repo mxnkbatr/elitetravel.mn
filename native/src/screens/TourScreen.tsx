@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import { Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
+import { cardShadow, GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
 import { API_ORIGIN, INSTAGRAM, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
 import { formatPrice } from "../lib/money";
 import { isBookable, relatedTours, seatHint } from "../lib/tours";
@@ -41,15 +42,16 @@ export function TourScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <View style={{ height: 390 }}>
-          <RemoteImage uri={hero} width={1200} height={1400} alt={tour.title} style={{ width: "100%", height: "100%" }} />
+        <View style={{ height: 420 }}>
+          <RemoteImage uri={hero} width={1400} height={1600} alt={tour.title} style={{ width: "100%", height: "100%" }} />
+          <LinearGradient colors={["rgba(5,22,20,0.28)", "rgba(5,22,20,0)", colors.bg]} locations={[0, 0.45, 1]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
         </View>
-        <View style={{ paddingHorizontal: 20, marginTop: -48 }}>
-          <Text style={{ color: colors.accent, fontWeight: "700", letterSpacing: 1, fontSize: 12 }}>{tour.destination.toUpperCase()}</Text>
-          <Text style={{ color: colors.text, fontSize: 38, lineHeight: 40, fontFamily: fontsReady ? fonts.display : undefined }}>{tour.title}</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+        <View style={{ paddingHorizontal: 20, marginTop: -72 }}>
+          <Text style={{ color: colors.accent, fontWeight: "700", letterSpacing: 1.6, fontSize: 12 }}>{tour.destination.toUpperCase()}</Text>
+          <Text style={{ color: colors.text, fontSize: 40, lineHeight: 42, marginTop: 4, fontFamily: fontsReady ? fonts.display : undefined }}>{tour.title}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
             {[tour.duration, tour.dates, tour.departure].filter(Boolean).map((fact) => (
-              <Text key={fact} style={{ backgroundColor: colors.card, color: colors.text, borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 6, fontWeight: "600" }}>{fact}</Text>
+              <Text key={fact} style={[{ backgroundColor: colors.card, color: colors.text, borderRadius: 999, overflow: "hidden", paddingHorizontal: 12, paddingVertical: 7, fontWeight: "600" }, cardShadow]}>{fact}</Text>
             ))}
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 16 }}>
@@ -72,8 +74,8 @@ export function TourScreen() {
           {tour.highlights?.length ? (
             <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {tour.highlights.map((item, index) => (
-                <View key={item} style={{ width: "48%", backgroundColor: colors.card, borderRadius: 18, padding: 10, flexDirection: "row", gap: 8, alignItems: "center" }}>
-                  <Text style={{ color: colors.accent, fontWeight: "800" }}>{String(index + 1).padStart(2, "0")}</Text>
+                <View key={item} style={[{ width: "48%", backgroundColor: colors.card, borderRadius: 18, padding: 12, flexDirection: "row", gap: 8, alignItems: "center" }, cardShadow]}>
+                  <Text style={{ width: 28, height: 28, borderRadius: 9, overflow: "hidden", backgroundColor: "rgba(11,125,115,0.1)", color: colors.accent, fontWeight: "800", textAlign: "center", lineHeight: 28 }}>{String(index + 1).padStart(2, "0")}</Text>
                   <Text style={{ color: colors.text, flex: 1, fontWeight: "600" }}>{item}</Text>
                 </View>
               ))}
@@ -120,10 +122,10 @@ export function TourScreen() {
           </View>
         </View>
       </ScrollView>
-      <Press label="Буцах" onPress={() => router.back()} style={{ position: "absolute", top: insets.top + 8, left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.28)", alignItems: "center", justifyContent: "center" }}>
+      <Press label="Буцах" onPress={() => router.back()} style={{ position: "absolute", top: insets.top + 8, left: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.45)", alignItems: "center", justifyContent: "center" }}>
         <Ionicons name="chevron-back" size={20} color="white" />
       </Press>
-      <Press label={saved ? "Хадгалснаас хасах" : "Хадгалах"} onPress={() => void session.toggleSaved(tour.id)} style={{ position: "absolute", top: insets.top + 8, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.28)", alignItems: "center", justifyContent: "center" }}>
+      <Press label={saved ? "Хадгалснаас хасах" : "Хадгалах"} onPress={() => void session.toggleSaved(tour.id)} style={{ position: "absolute", top: insets.top + 8, right: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.45)", alignItems: "center", justifyContent: "center" }}>
         <Ionicons name={saved ? "heart" : "heart-outline"} size={20} color="white" />
       </Press>
       <GlassBar style={{ position: "absolute", left: 14, right: 14, bottom: Math.max(insets.bottom, 12), height: 72, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 18, paddingRight: 10 }}>

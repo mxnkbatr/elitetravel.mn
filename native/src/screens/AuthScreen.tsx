@@ -1,9 +1,11 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Field, Press, Txt } from "../components/ui";
+import { cardShadow, Field, Press, RemoteImage, Txt } from "../components/ui";
 import type { AuthMode } from "../lib/auth";
+import { COAST_PLATE } from "../lib/config";
 import { useSession } from "../state/session";
 import { fonts, useTheme } from "../theme";
 
@@ -56,9 +58,17 @@ export function AuthScreen() {
       : "Имэйлээ оруулаад ирсэн кодоор нэвтэрнэ. Бүртгэлтэй хаяг мөн энэ кодоор орно.";
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, padding: 20, paddingTop: insets.top + 16, gap: 12 }}>
-      <Press label="Хаах" onPress={() => router.back()}><Text style={{ color: colors.accent }}>Хаах</Text></Press>
-      <Text accessibilityRole="header" style={{ color: colors.text, fontSize: 36, fontFamily: fontsReady ? fonts.display : undefined }}>{title}</Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ height: 210 }}>
+        <RemoteImage uri={COAST_PLATE} width={1200} height={800} alt="" style={{ width: "100%", height: "100%" }} />
+        <LinearGradient colors={["rgba(5,22,20,0.25)", colors.bg]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+        <Press label="Хаах" onPress={() => router.back()} style={{ position: "absolute", top: insets.top + 8, left: 16, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: colors.accent, fontWeight: "700" }}>Хаах</Text>
+        </Press>
+      </View>
+      <View style={{ paddingHorizontal: 20, marginTop: -28, gap: 12 }}>
+      <Text style={{ color: colors.accent, letterSpacing: 2, fontSize: 11, fontWeight: "700" }}>ELITE TRAVEL</Text>
+      <Text accessibilityRole="header" style={{ color: colors.text, fontSize: 40, lineHeight: 42, fontFamily: fontsReady ? fonts.display : undefined }}>{title}</Text>
       <Txt muted>{help}</Txt>
       {!sent && session.faceIdOn && session.biometry ? (
         <Press label={`${session.biometry}-аар нэвтрэх`} disabled={busy} onPress={() => void session.faceIdSignIn().then(() => router.back()).catch((e: unknown) => setError(e instanceof Error ? e.message : "Нэвтэрч чадсангүй."))} style={{ height: 52, borderRadius: 26, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
@@ -87,6 +97,7 @@ export function AuthScreen() {
           <Press label="Дахин илгээх" disabled={busy} onPress={() => void send()}><Text style={{ color: colors.accent, fontWeight: "700" }}>Дахин илгээх</Text></Press>
         </View>
       ) : null}
+      </View>
     </View>
   );
 }

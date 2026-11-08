@@ -134,6 +134,14 @@ export function HeroShade() {
   return <LinearGradient colors={["rgba(5,22,20,0.45)", "rgba(5,22,20,0.05)", "rgba(5,22,20,0.2)", "rgba(6,24,22,0.82)"]} locations={[0, 0.28, 0.55, 1]} style={StyleSheet.absoluteFill} />;
 }
 
+export const cardShadow = {
+  shadowColor: "#062a2a",
+  shadowOpacity: 0.1,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: 10 },
+  elevation: 4,
+} as const;
+
 const styles = StyleSheet.create({
   display: { fontSize: 40, lineHeight: 42, letterSpacing: -0.8 },
   banner: { marginHorizontal: 18, marginTop: 10, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 10 },

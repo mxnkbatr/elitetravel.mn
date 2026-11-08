@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Field, Press, ScreenScrollSpacer, StateBlock, Txt } from "../components/ui";
+import { cardShadow, Field, Press, ScreenScrollSpacer, StateBlock, Txt } from "../components/ui";
 import { INSTAGRAM, PHONE_ALT, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
 import { useSession } from "../state/session";
 import { fonts, useTheme } from "../theme";
@@ -25,12 +25,13 @@ export function AccountScreen() {
   if (session.status === "loading") return <StateBlock busy title="Бүртгэлийг шалгаж байна" />;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 16, gap: 12 }}>
-      <Text style={{ color: colors.text, fontSize: 40, fontFamily: fontsReady ? fonts.display : undefined }}>Бүртгэл</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 18, gap: 14 }}>
+      <Text style={{ color: colors.muted, letterSpacing: 2, fontSize: 11, fontWeight: "700" }}>ELITE TRAVEL</Text>
+      <Text style={{ color: colors.text, fontSize: 44, lineHeight: 46, marginTop: -6, fontFamily: fontsReady ? fonts.display : undefined }}>Бүртгэл</Text>
       {session.error ? <Txt>{session.error}</Txt> : null}
       {session.status === "offline" && session.profile ? <Txt>Сүлжээгүй тул бүртгэл шинэчлэгдсэнгүй. Сүүлд хадгалсан нэрийг харуулж байна.</Txt> : null}
       {session.status === "guest" || (session.status === "offline" && !session.profile) ? (
-        <View style={{ gap: 10 }}>
+        <View style={[{ gap: 12, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
           <Txt>Имэйлээр нэг удаагийн код авч нэвтэрнэ. Нууц үг байхгүй.</Txt>
           {session.status === "offline" ? <Press label="Дахин шалгах" onPress={session.refresh}><Text style={{ color: colors.accent, fontWeight: "700" }}>Дахин шалгах</Text></Press> : null}
           <Press label="Нэвтрэх" onPress={() => router.push("/auth")} style={{ height: 52, borderRadius: 26, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
@@ -43,7 +44,7 @@ export function AccountScreen() {
           ) : null}
         </View>
       ) : (
-        <View style={{ gap: 12 }}>
+        <View style={[{ gap: 12, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
           <Txt>{session.profile?.email}</Txt>
           <Field label="Нэр" value={name} onChangeText={setName} />
           <Field label="Утас" value={phone} onChangeText={setPhone} keyboard="phone-pad" />
@@ -66,8 +67,8 @@ export function AccountScreen() {
         </View>
       )}
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
-      <View style={{ marginTop: 8, gap: 6 }}>
-        <Text style={{ color: colors.text, fontSize: 22, fontFamily: fontsReady ? fonts.display : undefined }}>Мэдэгдэл</Text>
+      <View style={[{ marginTop: 4, gap: 8, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
+        <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Мэдэгдэл</Text>
         <Txt muted>Захиалгын мэдэгдлийг сервер Firebase Cloud Messaging-ээр илгээдэг. Энэ Expo хувилбарт FCM төхөөрөмжийн токен авахад хэрэгтэй Firebase тохиргоог оруулаагүй тул мэдэгдэл бүртгэхгүй. Capacitor аппын түлхүүрийг энд хуулаагүй.</Txt>
         <Press label="Утас" onPress={() => void Linking.openURL(PHONE_TEL)}><Text style={{ color: colors.accent, fontWeight: "700" }}>{PHONE_DISPLAY}</Text></Press>
         <Txt muted>Эсвэл {PHONE_ALT}</Txt>

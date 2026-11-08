@@ -12,4 +12,8 @@ export const INSTAGRAM = "https://ig.me/m/elitetravelmn";
 
 /** Brand still published with the website (src/lib/cloudinary.ts seascape poster). */
 export const HERO_STILL =
-  "https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_auto,c_fill,g_auto,w_1400,h_1800/elitetravel/media/web-hero-seascape-frame";
+  "https://res.cloudinary.com/ev6fygsf/image/upload/elitetravel/media/web-hero-seascape-frame";
+
+/** Published Hainan coast photo used as the editorial home plate. Tour cards stay catalogue data. */
+export const COAST_PLATE =
+  "https://res.cloudinary.com/ev6fygsf/image/upload/elitetravel/tours/tropical-aerial-coast";

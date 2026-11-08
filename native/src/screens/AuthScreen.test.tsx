@@ -2,10 +2,13 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("expo-linear-gradient", () => ({ LinearGradient: ({ children }: { children?: ReactNode }) => children ?? null }));
 vi.mock("../components/ui", () => ({
   Field: ({ label, value }: { label: string; value: string }) => createElement("input", { "aria-label": label, defaultValue: value }),
   Press: ({ children, label }: { children: ReactNode; label: string }) => createElement("button", { "aria-label": label }, children),
   Txt: ({ children }: { children: ReactNode }) => createElement("p", null, children),
+  RemoteImage: () => null,
+  cardShadow: {},
 }));
 
 vi.mock("expo-router", () => ({ useRouter: () => ({ back: () => undefined, push: () => undefined }) }));
