@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   upload:
-    if: hashFiles('native/UPLOAD_TESTFLIGHT') != ''
+    if: ${{ hashFiles('native/UPLOAD_TESTFLIGHT') != '' }}
     runs-on: macos-26
     timeout-minutes: 90
     permissions:
