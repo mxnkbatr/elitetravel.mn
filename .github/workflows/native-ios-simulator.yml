@@ -68,17 +68,21 @@ jobs:
         working-directory: native/ios
         run: |
           set -o pipefail
+          # Debug sets SKIP_BUNDLING, so the simulator would launch with no JS.
+          # Release runs Expo's export:embed and does not need Metro.
           xcodebuild \
             -workspace EliteTravel.xcworkspace \
             -scheme EliteTravel \
-            -configuration Debug \
+            -configuration Release \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/elite-dd" \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             build | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 120
-          test -d "$RUNNER_TEMP/elite-dd"
+          test -d "$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app/main.jsbundle"
 
       - name: Launch on a simulator
         working-directory: native
