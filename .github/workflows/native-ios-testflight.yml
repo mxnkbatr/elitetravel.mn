@@ -1,0 +1,307 @@
+# Signed TestFlight upload for native/ only. Does not build mobile/, deploy the website,
+# merge, or submit for App Review. Secrets are the existing distribution names.
+
+name: Native iOS TestFlight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/native-ios-testflight.yml"
+
+concurrency:
+  group: native-ios-testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      TEAM_ID: 78XCG6RMZS
+      BUNDLE_ID: mn.elitetravel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Tool versions
+        run: xcodebuild -version
+
+      - name: Install and prebuild
+        working-directory: native
+        env:
+          CI: "1"
+        run: |
+          set -euo pipefail
+          npm ci
+          # App Store requires a 1024 icon. The committed file is 512 RGB without alpha.
+          sips -z 1024 1024 assets/icon.png >/dev/null
+          sips -g pixelWidth -g pixelHeight -g hasAlpha assets/icon.png
+          npx expo prebuild --platform ios --no-install
+          test -f ios/EliteTravel/SplashScreen.storyboard
+          /usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSFaceIDUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' ios/EliteTravel/Info.plist
+
+      - name: Install CocoaPods
+        working-directory: native/ios
+        run: pod install
+
+      - name: Install signing certificate and profile
+        env:
+          P12_B64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          P12_PW: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${P12_B64}" ] || [ -z "${P12_PW}" ] || [ -z "${PROFILE_B64}" ]; then
+            echo "Missing signing secret. This job needs IOS_CERT_P12_BASE64, IOS_CERT_PASSWORD, and IOS_PROFILE_BASE64."
+            exit 1
+          fi
+          KC=$RUNNER_TEMP/build.keychain-db
+          KC_PW=$(uuidgen)
+          echo "::add-mask::$KC_PW"
+          echo "$P12_B64" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          security import $RUNNER_TEMP/cert.p12 -P "$P12_PW" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f $RUNNER_TEMP/cert.p12
+          security find-identity -v -p codesigning "$KC"
+          echo "$PROFILE_B64" | base64 --decode > $RUNNER_TEMP/p.mobileprovision
+          DECODED=$(security cms -D -i $RUNNER_TEMP/p.mobileprovision)
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$DECODED")
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            cp $RUNNER_TEMP/p.mobileprovision "$d/$UUID.mobileprovision"
+          done
+          APPID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" /dev/stdin <<< "$DECODED")
+          case "$APPID" in
+            *."$BUNDLE_ID") echo "Provisioning profile matches $BUNDLE_ID" ;;
+            *) echo "Provisioning profile does not match $BUNDLE_ID"; exit 1 ;;
+          esac
+          if /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" /dev/stdin <<< "$DECODED" >/dev/null 2>&1; then
+            echo "Profile includes push entitlement. The native app does not enable push."
+          else
+            echo "Profile has no push entitlement."
+          fi
+          echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+          rm -f $RUNNER_TEMP/p.mobileprovision
+
+      - name: Choose the next App Store version
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_P8}" ] || [ -z "${ASC_KEY_ID}" ] || [ -z "${ASC_ISSUER_ID}" ]; then
+            echo "Missing App Store Connect secret. This job needs ASC_KEY_P8_BASE64, ASC_KEY_ID, and ASC_ISSUER_ID."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+          python3 - << 'PY'
+          import base64, json, os, subprocess, time, urllib.error, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
+          key_id = os.environ["ASC_KEY_ID"]
+          issuer = os.environ["ASC_ISSUER_ID"]
+          now = int(time.time())
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          header = b64(json.dumps({"alg": "ES256", "kid": key_id, "typ": "JWT"}).encode())
+          payload = b64(json.dumps({"iss": issuer, "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"}).encode())
+          signed = f"{header}.{payload}".encode()
+          der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+          i = 2
+          if der[1] & 0x80:
+              i = 2 + (der[1] & 0x7F)
+          assert der[i] == 2
+          i += 1
+          rlen = der[i]; i += 1
+          r = der[i:i + rlen]; i += rlen
+          assert der[i] == 2
+          i += 1
+          slen = der[i]; i += 1
+          s = der[i:i + slen]
+          token = signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
+          open(os.environ["RUNNER_TEMP"] + "/asc/token", "w").write(token)
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as res:
+                      return json.load(res)
+              except urllib.error.HTTPError as err:
+                  body = err.read().decode("utf-8", "replace")[:500]
+                  raise SystemExit(f"App Store Connect API {err.code}: {body}")
+          apps = api("/v1/apps?filter[bundleId]=mn.elitetravel.app&limit=1")
+          if not apps.get("data"):
+              raise SystemExit("No existing App Store Connect app for mn.elitetravel.app. Refusing to create one.")
+          app_id = apps["data"][0]["id"]
+          open(os.environ["RUNNER_TEMP"] + "/asc/app-id", "w").write(app_id)
+          versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=50")
+          def ver_key(value):
+              parts = []
+              for part in str(value).split("."):
+                  if part.isdigit():
+                      parts.append(int(part))
+                  else:
+                      break
+              return tuple(parts) or (0,)
+          best = None
+          for item in versions.get("data", []):
+              version = item.get("attributes", {}).get("version") or ""
+              if best is None or ver_key(version) > ver_key(best[0]):
+                  best = (version, item["id"])
+          store = api(f"/v1/apps/{app_id}/appStoreVersions?limit=20")
+          live = None
+          for item in store.get("data", []):
+              version = item.get("attributes", {}).get("versionString") or ""
+              if live is None or ver_key(version) > ver_key(live):
+                  live = version
+          floor = live or "1.2"
+          if best is None or ver_key(best[0]) < ver_key(floor):
+              marketing, build = floor, "1"
+              if ver_key(floor) < ver_key("1.3"):
+                  marketing, build = "1.3", "1"
+          else:
+              marketing = best[0]
+              builds = api(f"/v1/preReleaseVersions/{best[1]}/builds?limit=50&fields[builds]=version")
+              numbers = []
+              for item in builds.get("data", []):
+                  number = str(item.get("attributes", {}).get("version") or "")
+                  if number.isdigit():
+                      numbers.append(int(number))
+              build = str(max(numbers) + 1 if numbers else 1)
+          print(f"Uploading version {marketing} build {build}. Highest store version seen: {live or 'none'}.")
+          open(os.environ["GITHUB_ENV"], "a").write(f"MARKETING_VERSION={marketing}\nBUILD_NUMBER={build}\n")
+          PY
+
+      - name: Archive
+        working-directory: native/ios
+        run: |
+          set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" EliteTravel/Info.plist
+          P=EliteTravel.xcodeproj/project.pbxproj
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; DEVELOPMENT_TEAM = $TEAM_ID; \"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]\" = \"$PROFILE_UUID\"; \"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Distribution\";/" "$P"
+          compile() {
+            xcodebuild archive \
+              -workspace EliteTravel.xcworkspace \
+              -scheme EliteTravel \
+              -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
+              MARKETING_VERSION="$MARKETING_VERSION" \
+              CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+          }
+          set +e
+          compile | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 80
+          status=${PIPESTATUS[0]}
+          if [[ "$status" -ne 0 ]] && grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild.log"; then
+            echo "MapLibre package download failed. Retrying the archive once."
+            sleep 20
+            compile | tee "$RUNNER_TEMP/xcodebuild-retry.log" | tail -n 80
+            status=${PIPESTATUS[0]}
+          fi
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            exit "$status"
+          fi
+          APP="$RUNNER_TEMP/EliteTravel.xcarchive/Products/Applications/EliteTravel.app"
+          test -f "$APP/main.jsbundle"
+          if ! find "$APP" -name 'SplashScreen*' | grep -q .; then
+            echo "Splash screen was not in the archived app."
+            find "$APP" -iname '*splash*' -o -iname '*launch*' | head
+            exit 1
+          fi
+          echo "Archive contains the JS bundle and splash screen for $MARKETING_VERSION ($BUILD_NUMBER)."
+
+      - name: Export and upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingCertificate</key><string>iPhone Distribution</string>
+            <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$PROFILE_UUID</string></dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/out"
+          IPA=$(ls "$RUNNER_TEMP/out/"*.ipa | head -1)
+          test -n "$IPA"
+          mkdir -p ~/.appstoreconnect/private_keys "$RUNNER_TEMP/upload"
+          cp "$RUNNER_TEMP/asc/AuthKey.p8" ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" | tee "$RUNNER_TEMP/upload/altool.txt"
+          python3 - << 'PY'
+          import json, os, time, urllib.request
+          token = open(os.environ["RUNNER_TEMP"] + "/asc/token").read().strip()
+          app_id = open(os.environ["RUNNER_TEMP"] + "/asc/app-id").read().strip()
+          marketing = os.environ["MARKETING_VERSION"]
+          build = os.environ["BUILD_NUMBER"]
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              with urllib.request.urlopen(req, timeout=60) as res:
+                  return json.load(res)
+          state = "NOT_FOUND"
+          for _ in range(12):
+              data = api(f"/v1/builds?filter[app]={app_id}&filter[version]={build}&limit=10&fields[builds]=version,processingState,uploadedDate")
+              match = None
+              for item in data.get("data", []):
+                  if str(item.get("attributes", {}).get("version")) == build:
+                      match = item
+                      break
+              if match:
+                  state = match["attributes"].get("processingState") or "UNKNOWN"
+                  print(f"Build {marketing} ({build}) processingState={state}")
+                  if state in ("VALID", "FAILED", "INVALID"):
+                      break
+              else:
+                  print(f"Build {marketing} ({build}) is not listed yet.")
+              time.sleep(30)
+          open(os.environ["RUNNER_TEMP"] + "/upload/processing.txt", "w").write(f"{marketing} {build} {state}\n")
+          if state in ("FAILED", "INVALID"):
+              raise SystemExit(f"App Store Connect marked the build {state}")
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-testflight-evidence
+          path: ${{ runner.temp }}/upload
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+          rm -rf ~/.appstoreconnect/private_keys "$RUNNER_TEMP/asc" "$HOME/Library/MobileDevice/Provisioning Profiles" || true
