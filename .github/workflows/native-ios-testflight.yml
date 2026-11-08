@@ -200,19 +200,21 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" EliteTravel/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" EliteTravel/Info.plist
           python3 - << 'PY'
-          import os
+          import os, re
           path = "EliteTravel.xcodeproj/project.pbxproj"
           text = open(path).read()
           team = os.environ["TEAM_ID"]
           profile = os.environ["PROFILE_UUID"]
-          needle = 'PRODUCT_BUNDLE_IDENTIFIER = "mn.elitetravel.app";'
-          insert = needle + "\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = " + team + ";\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Distribution\";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"" + profile + "\";"
-          if needle not in text:
-              raise SystemExit("App target bundle id was not found in the Xcode project")
-          text = text.replace(needle, insert)
+          pattern = re.compile(r'PRODUCT_BUNDLE_IDENTIFIER = "?mn\.elitetravel\.app"?;')
+          matches = list(pattern.finditer(text))
+          if not matches:
+              lines = [line.strip() for line in text.splitlines() if "PRODUCT_BUNDLE_IDENTIFIER" in line]
+              raise SystemExit("App target bundle id was not found. Lines: " + " | ".join(lines[:8]))
+          insert_tail = '\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = ' + team + ';\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "' + profile + '";'
+          text = pattern.sub(lambda m: m.group(0) + insert_tail, text)
           text = text.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
           open(path, "w").write(text)
-          print("Manual distribution signing set on the app target")
+          print(f"Manual distribution signing set on {len(matches)} app target configurations")
           PY
           compile() {
             xcodebuild archive \
