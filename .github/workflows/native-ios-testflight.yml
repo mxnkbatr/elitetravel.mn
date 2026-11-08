@@ -175,12 +175,15 @@ jobs:
               version = item.get("attributes", {}).get("versionString") or ""
               if live is None or ver_key(version) > ver_key(live):
                   live = version
-          floor = live or "1.2"
-          if best is None or ver_key(best[0]) < ver_key(floor):
-              marketing, build = floor, "1"
-              if ver_key(floor) < ver_key("1.3"):
-                  marketing, build = "1.3", "1"
-          else:
+          def bump_minor(version):
+              parts = [int(part) if part.isdigit() else 0 for part in str(version).split(".")]
+              while len(parts) < 2:
+                  parts.append(0)
+              return f"{parts[0]}.{parts[1] + 1}"
+          # 1.2 is already approved, so that train is closed. The next upload has to be a higher version.
+          marketing = bump_minor(live or "1.2")
+          build = "1"
+          if best is not None and ver_key(best[0]) >= ver_key(marketing):
               marketing = best[0]
               builds = api(f"/v1/preReleaseVersions/{best[1]}/builds?limit=50&fields[builds]=version")
               numbers = []
@@ -199,6 +202,8 @@ jobs:
           set -euo pipefail
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" EliteTravel/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" EliteTravel/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" EliteTravel/Info.plist || true
           python3 - << 'PY'
           import os, re
           path = "EliteTravel.xcodeproj/project.pbxproj"
@@ -213,6 +218,8 @@ jobs:
           insert_tail = '\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = ' + team + ';\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "' + profile + '";'
           text = pattern.sub(lambda m: m.group(0) + insert_tail, text)
           text = text.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
+          # The approved 1.2 app supports iPad. An update cannot drop that device family.
+          text = text.replace('TARGETED_DEVICE_FAMILY = "1";', 'TARGETED_DEVICE_FAMILY = "1,2";')
           open(path, "w").write(text)
           print(f"Manual distribution signing set on {len(matches)} app target configurations")
           PY
