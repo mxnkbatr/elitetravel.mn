@@ -5,6 +5,9 @@ name: Native iOS screenshots
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/native-ios-screenshots.yml"
 
 jobs:
   screenshots:
@@ -102,18 +105,22 @@ jobs:
             xcrun simctl launch "$udid" mn.elitetravel.app
             sleep 12
             xcrun simctl io "$udid" screenshot "$OUT/${label}-01-home.png"
-            xcrun simctl openurl "$udid" "elitetravel://tour/$TOUR"
-            sleep 6
-            xcrun simctl io "$udid" screenshot "$OUT/${label}-02-tour.png"
-            xcrun simctl openurl "$udid" "elitetravel://map"
-            sleep 8
-            xcrun simctl io "$udid" screenshot "$OUT/${label}-03-map.png"
-            xcrun simctl openurl "$udid" "elitetravel://trips"
-            sleep 4
-            xcrun simctl io "$udid" screenshot "$OUT/${label}-04-bookings.png"
-            xcrun simctl openurl "$udid" "elitetravel://account"
-            sleep 4
-            xcrun simctl io "$udid" screenshot "$OUT/${label}-05-profile.png"
+            # Opening a URL while the app is already running shows an "Open in Elite Travel?" dialog.
+            # Terminating first lets the URL cold-start the screen directly.
+            open_route() {
+              local route=$1
+              local file=$2
+              local pause=$3
+              xcrun simctl terminate "$udid" mn.elitetravel.app || true
+              sleep 1
+              xcrun simctl openurl "$udid" "elitetravel://$route"
+              sleep "$pause"
+              xcrun simctl io "$udid" screenshot "$OUT/$file"
+            }
+            open_route "tour/$TOUR" "${label}-02-tour.png" 10
+            open_route "map" "${label}-03-map.png" 12
+            open_route "trips" "${label}-04-bookings.png" 8
+            open_route "account" "${label}-05-profile.png" 8
             xcrun simctl terminate "$udid" mn.elitetravel.app || true
             xcrun simctl shutdown "$udid" || true
           }
