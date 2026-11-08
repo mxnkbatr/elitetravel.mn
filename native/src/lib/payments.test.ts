@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { bookingError } from "./booking-rules";
 import { mergeBookings } from "./bookings-merge";
-import { payNotice, payNoticeText } from "./payments";
+import { payNotice, payNoticeText, paymentLinkKind, QPAY_PATH } from "./payments";
+import { bookingCreated, bookingPayload } from "./booking-rules";
 import { isBookable, seatHint } from "./tours";
 
 describe("booking rules", () => {
@@ -11,6 +12,23 @@ describe("booking rules", () => {
     expect(bookingError(tour, draft)).toBeNull();
     expect(bookingError(tour, { ...draft, phone: "12" })).toBe("Утасны дугаараа шалгана уу.");
     expect(bookingError(tour, { ...draft, date: "өөр" })).toBe("Огноо буруу байна.");
+  });
+});
+
+describe("payment handoff", () => {
+  it("opens https in the browser and refuses cleartext or the mock-pay route", () => {
+    expect(paymentLinkKind("https://qpay.mn/pay")).toBe("browser");
+    expect(paymentLinkKind("qpay://invoice/1")).toBe("external");
+    expect(paymentLinkKind("http://qpay.mn/pay")).toBe("reject");
+    expect(Object.values(QPAY_PATH).join(" ")).not.toMatch(/mock-pay/);
+  });
+
+  it("does not treat a booking response without a server total as created", () => {
+    const body = bookingPayload("hainan-4", { adults: 2, kidsOwnBed: 0, kidsSharedBed: 0, singleRooms: 0, name: "Болд", phone: "99001122", date: "", note: "" });
+    expect(body).not.toHaveProperty("total");
+    expect(body.website).toBe("");
+    expect(bookingCreated({ id: "ET-1" })).toBeNull();
+    expect(bookingCreated({ id: "ET-1", total: 10, token: "abc" })?.total).toBe(10);
   });
 });
 

@@ -23,7 +23,7 @@ export function HomeScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: 24 }}>
       <View style={{ height: 500 }}>
         <RemoteImage uri={hero} width={1200} height={1600} alt="Elite Travel" style={{ width: "100%", height: "100%" }} />
-        <View style={{ position: "absolute", inset: 0, backgroundColor: "rgba(5,22,20,0.28)" }} />
+        <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(5,22,20,0.28)" }} />
         <View style={{ position: "absolute", left: 22, right: 22, top: insets.top + 12 }}>
           <Text style={{ color: "white", letterSpacing: 4, fontSize: 15, fontFamily: fontsReady ? fonts.sansBold : undefined }}>ELITE</Text>
           <Text style={{ color: "rgba(255,255,255,0.8)", letterSpacing: 3, fontSize: 10, marginTop: 2 }}>TRAVEL</Text>

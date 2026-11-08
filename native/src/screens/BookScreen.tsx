@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Field, Press, StateBlock, Stepper, Txt } from "../components/ui";
 import { previewMode } from "../lib/config";
 import { apiRequest, ApiError } from "../lib/api";
-import { bookingError, type BookingDraft } from "../lib/booking-rules";
+import { bookingCreated, bookingError, bookingPayload, type BookingDraft } from "../lib/booking-rules";
 import { formatPrice } from "../lib/money";
 import { quote } from "../lib/quote";
 import { isBookable, tourDates } from "../lib/tours";
@@ -51,24 +51,9 @@ export function BookScreen() {
     setBusy(true);
     setError(null);
     try {
-      const res = await apiRequest({
-        path: "/api/bookings",
-        json: {
-          tourId: tour.id,
-          date: draft.date || dates[0] || undefined,
-          name: draft.name.trim(),
-          phone: draft.phone.trim(),
-          note: draft.note.trim() || undefined,
-          adults: draft.adults,
-          kidsOwnBed: draft.kidsOwnBed,
-          kidsSharedBed: draft.kidsSharedBed,
-          singleRooms: draft.singleRooms,
-          website: "",
-        },
-      });
-      const body = res.body as { id?: unknown; total?: unknown; deposit?: unknown; token?: unknown; status?: unknown };
-      if (typeof body.id !== "string" || typeof body.total !== "number") throw new Error("Сервер хүсэлтийн дугаар буцаасангүй.");
-      const createdBooking: Created = { id: body.id, total: body.total, deposit: typeof body.deposit === "number" ? body.deposit : 0, status: typeof body.status === "string" ? body.status : undefined, token: typeof body.token === "string" ? body.token : undefined };
+      const res = await apiRequest({ path: "/api/bookings", json: bookingPayload(tour.id, { ...draft, date: draft.date || dates[0] || "" }) });
+      const createdBooking = bookingCreated(res.body);
+      if (!createdBooking) throw new Error("Сервер хүсэлтийн дугаар буцаасангүй.");
       setCreated(createdBooking);
       if (createdBooking.token) {
         await device.remember({ id: createdBooking.id, tourId: tour.id, tourTitle: tour.title, token: createdBooking.token, createdAt: new Date().toISOString(), total: createdBooking.total, deposit: createdBooking.deposit, date: draft.date || undefined, status: createdBooking.status as TripStatus | undefined });

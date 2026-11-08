@@ -9,7 +9,7 @@ import { previewMode } from "../lib/config";
 import { apiRequest, ApiError } from "../lib/api";
 import { DOC_LABEL, DOC_STATUS, STATUS_LABEL } from "../lib/labels";
 import { formatPrice } from "../lib/money";
-import { payNotice, payNoticeText } from "../lib/payments";
+import { payNotice, payNoticeText, paymentLinkKind, QPAY_PATH } from "../lib/payments";
 import type { PayKind, Trip } from "../lib/types";
 import { useDeviceBookings } from "../state/device-bookings";
 import { fonts, useTheme } from "../theme";
@@ -68,7 +68,7 @@ export function TripScreen() {
     const before = trip.paidAmount;
     setBusy(true);
     try {
-      const next = await apiRequest({ path: "/api/payments/qpay/status", headers: { "x-trip-token": token } });
+      const next = await apiRequest({ path: QPAY_PATH.status, headers: { "x-trip-token": token } });
       if (!isTrip(next.body)) throw new Error("Төлөв уншигдсангүй.");
       setTrip(next.body);
       setNotice(payNoticeText(payNotice({ qpay: next.body.qpay, invoiceMock: next.body.invoice?.mock, status: next.body.status, paidAmount: next.body.paidAmount, previousPaid: before })));
@@ -84,9 +84,9 @@ export function TripScreen() {
     const before = trip.paidAmount;
     setBusy(true);
     try {
-      const res = await apiRequest({ path: "/api/payments/qpay/create", json: { kind }, headers: { "x-trip-token": token } });
+      const res = await apiRequest({ path: QPAY_PATH.create, json: { kind }, headers: { "x-trip-token": token } });
       const invoice = res.body as { mock?: boolean };
-      const next = await apiRequest({ path: "/api/payments/qpay/status", headers: { "x-trip-token": token } });
+      const next = await apiRequest({ path: QPAY_PATH.status, headers: { "x-trip-token": token } });
       if (!isTrip(next.body)) throw new Error("Төлөв уншигдсангүй.");
       setTrip(next.body);
       setNotice(payNoticeText(payNotice({ qpay: next.body.qpay, invoiceMock: invoice.mock === true || next.body.invoice?.mock === true, status: next.body.status, paidAmount: next.body.paidAmount, previousPaid: before })));
@@ -145,11 +145,15 @@ export function TripScreen() {
         ))}
         {trip.invoice?.qrImage ? <Image source={{ uri: trip.invoice.qrImage }} style={{ width: 220, height: 220, alignSelf: "center" }} accessibilityLabel="QPay QR" /> : null}
         {trip.invoice?.mock ? <Txt>{payNoticeText("mock")}</Txt> : null}
-        {trip.invoice?.urls.map((url) => (
-          <Press key={url.link} label={url.name} onPress={() => void (url.link.startsWith("http") ? WebBrowser.openBrowserAsync(url.link) : Linking.openURL(url.link))}>
-            <Text style={{ color: colors.accent, fontWeight: "700" }}>{url.name}</Text>
-          </Press>
-        ))}
+        {trip.invoice?.urls.map((url) => {
+          const kind = paymentLinkKind(url.link);
+          if (kind === "reject") return <Txt key={url.link}>{url.name}: холбоос нээгдэхгүй.</Txt>;
+          return (
+            <Press key={url.link} label={url.name} onPress={() => void (kind === "browser" ? WebBrowser.openBrowserAsync(url.link) : Linking.openURL(url.link))}>
+              <Text style={{ color: colors.accent, fontWeight: "700" }}>{url.name}</Text>
+            </Press>
+          );
+        })}
         <Press label="Төлбөр шалгах" onPress={() => void refreshStatus()} disabled={busy}>
           <Text style={{ color: colors.accent }}>Серверээс төлөв шалгах</Text>
         </Press>

@@ -14,7 +14,7 @@
       "backgroundColor": "#0b241d"
     },
     "ios": {
-      "bundleIdentifier": "mn.elitetravel.native",
+      "bundleIdentifier": "mn.elitetravel.app",
       "supportsTablet": false,
       "infoPlist": {
         "CFBundleDisplayName": "Elite Travel",
@@ -25,7 +25,7 @@
       }
     },
     "android": {
-      "package": "mn.elitetravel.native",
+      "package": "mn.elitetravel.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0b241d"

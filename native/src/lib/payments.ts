@@ -8,6 +8,16 @@ export function payNotice(input: { qpay: "live" | "mock" | "off"; invoiceMock?: 
   return recorded ? "paid" : "pending";
 }
 
+/** https stays in the in-app browser. Bank app schemes leave the app. Cleartext http is refused. */
+export function paymentLinkKind(url: string): "browser" | "external" | "reject" {
+  if (url.startsWith("https://")) return "browser";
+  if (url.startsWith("http://")) return "reject";
+  if (/^[a-z][a-z0-9+.-]*:/.test(url)) return "external";
+  return "reject";
+}
+
+export const QPAY_PATH = { create: "/api/payments/qpay/create", status: "/api/payments/qpay/status" } as const;
+
 export function payNoticeText(notice: PayNotice) {
   switch (notice) {
     case "off":

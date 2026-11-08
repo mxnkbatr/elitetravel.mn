@@ -28,9 +28,11 @@ export function AccountScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 16, gap: 12 }}>
       <Text style={{ color: colors.text, fontSize: 40, fontFamily: fontsReady ? fonts.display : undefined }}>Бүртгэл</Text>
       {session.error ? <Txt>{session.error}</Txt> : null}
-      {session.status === "guest" ? (
+      {session.status === "offline" && session.profile ? <Txt>Сүлжээгүй тул бүртгэл шинэчлэгдсэнгүй. Сүүлд хадгалсан нэрийг харуулж байна.</Txt> : null}
+      {session.status === "guest" || (session.status === "offline" && !session.profile) ? (
         <View style={{ gap: 10 }}>
           <Txt>Имэйлээр нэг удаагийн код авч нэвтэрнэ. Нууц үг байхгүй.</Txt>
+          {session.status === "offline" ? <Press label="Дахин шалгах" onPress={session.refresh}><Text style={{ color: colors.accent, fontWeight: "700" }}>Дахин шалгах</Text></Press> : null}
           <Press label="Нэвтрэх" onPress={() => router.push("/auth")} style={{ height: 52, borderRadius: 26, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: colors.onAccent, fontWeight: "700" }}>Нэвтрэх</Text>
           </Press>

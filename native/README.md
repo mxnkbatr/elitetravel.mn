@@ -2,7 +2,7 @@
 
 Isolated Expo app. It does not change the website, the Capacitor app in `mobile/`, or the root lockfile.
 
-Bundle id: `mn.elitetravel.native` (the existing Capacitor app keeps `mn.elitetravel.app`).
+The intended iOS bundle id and Android package are `mn.elitetravel.app`, the same identity as the existing Capacitor app. This build is not signed, uploaded, or submitted.
 
 ## Setup
 
@@ -23,7 +23,7 @@ iOS and Android projects are generated locally with `npx expo prebuild`. This re
 ## What talks to the server
 
 - Catalogue: public HTML of `/tours` and `/tours/:id` (there is no public JSON catalogue route).
-- Account: `/api/account`, `/api/account/code`, `/api/account/verify`, `/api/account/logout`, `/api/account/device`, `/api/account/device/login`.
+- Account: `/api/account/code` creates the traveller if the email is new (`shouldCreateUser: true`). Нэвтрэх and Бүртгүүлэх are the same code. Бүртгүүлэх also sends the name. `/api/account/verify` starts the session only when a Supabase `sb-` cookie comes back. Logout, deletion, expiry (`user: null` or 401) and offline restore are covered by mocked tests. `/api/account/device` and `/api/account/device/login` are the Face ID routes.
 - Booking request: `POST /api/bookings` only after the traveller confirms. Tests never call it.
 - Trip: `/api/trip` with `x-trip-token`, `/api/trips` for status, `/api/payments/qpay/create` and `/api/payments/qpay/status`. `mock-pay` is not called.
 - Session cookies are stored in the platform secure store, split into chunks. Face ID secrets use biometric access control.
