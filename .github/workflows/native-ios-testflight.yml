@@ -244,14 +244,20 @@ jobs:
               CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
           }
           set +e
-          compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 80
-          status=${PIPESTATUS[0]}
-          if [[ "$status" -ne 0 ]] && grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild.log"; then
-            echo "MapLibre package download failed. Retrying the archive once."
-            sleep 20
-            compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild-retry.log" | tail -n 80
+          status=1
+          for attempt in 1 2 3 4 5; do
+            compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild-$attempt.log" | tail -n 40
             status=${PIPESTATUS[0]}
-          fi
+            if [[ "$status" -eq 0 ]]; then
+              break
+            fi
+            if grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild-$attempt.log"; then
+              echo "MapLibre package download failed (attempt $attempt). Waiting and retrying."
+              sleep 20
+              continue
+            fi
+            break
+          done
           set -e
           if [[ "$status" -ne 0 ]]; then
             exit "$status"
