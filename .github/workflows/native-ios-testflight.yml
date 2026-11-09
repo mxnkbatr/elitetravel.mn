@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   confirm:
+    # Read-only. Does not upload or submit.
     runs-on: ubuntu-latest
     steps:
       - name: Read the 1.5 build state
