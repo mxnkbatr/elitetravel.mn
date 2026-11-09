@@ -18,7 +18,7 @@ jobs:
     # Read-only. Does not upload or submit.
     runs-on: ubuntu-latest
     steps:
-      - name: Read the 1.5 build state
+      - name: Read existing TestFlight build state
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -61,11 +61,19 @@ jobs:
           apps = api("/v1/apps?filter[bundleId]=mn.elitetravel.app&limit=1")
           app_id = apps["data"][0]["id"]
           versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=20")
-          version_id = next(item["id"] for item in versions["data"] if item["attributes"]["version"] == "1.5")
-          builds = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
-          for item in builds.get("data", []):
-              attrs = item["attributes"]
-              print(f"version=1.5 build={attrs.get('version')} id={item['id']} processingState={attrs.get('processingState')} uploaded={attrs.get('uploadedDate')}")
+          wanted = {"1.4", "1.5", "1.6"}
+          for item in versions.get("data", []):
+              version = item.get("attributes", {}).get("version")
+              if version not in wanted:
+                  continue
+              builds = api(f"/v1/preReleaseVersions/{item['id']}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
+              rows = builds.get("data", [])
+              if not rows:
+                  print(f"version={version} has no builds")
+                  continue
+              for build in rows:
+                  attrs = build["attributes"]
+                  print(f"version={version} build={attrs.get('version')} id={build['id']} processingState={attrs.get('processingState')} uploaded={attrs.get('uploadedDate')}")
           PY
           rm -rf "$RUNNER_TEMP/asc"
 
@@ -167,8 +175,8 @@ jobs:
             *) echo "Provisioning profile does not match $BUNDLE_ID"; exit 1 ;;
           esac
           APS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" /dev/stdin <<< "$DECODED" 2>/dev/null || true)
-          if [ -z "$APS" ]; then
-            echo "Profile has no aps-environment entitlement."
+          if [ "$APS" != "production" ]; then
+            echo "Profile aps-environment=${APS:-missing}. Push stays on the existing App ID; this upload needs production."
             exit 1
           fi
           echo "Profile aps-environment=$APS"
@@ -369,6 +377,12 @@ jobs:
             exit 1
           fi
           echo "Archive contains the JS bundle and splash screen for $MARKETING_VERSION ($BUILD_NUMBER)."
+          ENTITLEMENTS=$(codesign -d --entitlements :- "$APP" 2>/dev/null || true)
+          echo "$ENTITLEMENTS" | grep -q '<key>aps-environment</key>'
+          echo "$ENTITLEMENTS" | grep -A1 '<key>aps-environment</key>' | grep -q '<string>production</string>'
+          echo "Archived app aps-environment=production"
+          /usr/libexec/PlistBuddy -c 'Print :UIBackgroundModes' "$APP/Info.plist" | grep -q remote-notification
+          echo "Archived app includes remote-notification background mode."
           echo "Privacy purpose strings in the archived Info.plist:"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP/Info.plist"
@@ -423,13 +437,16 @@ jobs:
                   return json.load(res)
           state = "NOT_FOUND"
           build_id = ""
-          for _ in range(12):
-              data = api(f"/v1/builds?filter[app]={app_id}&filter[version]={build}&limit=10&fields[builds]=version,processingState,uploadedDate")
+          for _ in range(50):
+              versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=30")
+              version_id = next((item["id"] for item in versions.get("data", []) if item.get("attributes", {}).get("version") == marketing), None)
               match = None
-              for item in data.get("data", []):
-                  if str(item.get("attributes", {}).get("version")) == build:
-                      match = item
-                      break
+              if version_id:
+                  data = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
+                  for item in data.get("data", []):
+                      if str(item.get("attributes", {}).get("version")) == build:
+                          match = item
+                          break
               if match:
                   state = match["attributes"].get("processingState") or "UNKNOWN"
                   build_id = match.get("id") or ""
@@ -437,11 +454,11 @@ jobs:
                   if state in ("VALID", "FAILED", "INVALID"):
                       break
               else:
-                  print(f"Build {marketing} ({build}) is not listed yet.")
-              time.sleep(30)
+                  print(f"Build {marketing} ({build}) is not listed on preReleaseVersion {marketing} yet.")
+              time.sleep(40)
           open(os.environ["RUNNER_TEMP"] + "/upload/processing.txt", "w").write(f"{marketing} {build} {build_id} {state}\n")
-          if state in ("FAILED", "INVALID"):
-              raise SystemExit(f"App Store Connect marked the build {state}")
+          if state != "VALID":
+              raise SystemExit(f"Build {marketing} ({build}) id={build_id} processingState={state}")
           PY
 
       - name: Upload evidence
