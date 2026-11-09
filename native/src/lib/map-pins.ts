@@ -45,6 +45,23 @@ export function flightArc(to: { longitude: number; latitude: number }, steps = 3
   });
 }
 
+/** Prefix of a flight arc. t is 0 at Ulaanbaatar and 1 at the destination. */
+export function sliceArc(points: { longitude: number; latitude: number }[], t: number) {
+  if (!points.length) return [];
+  if (t <= 0) return [points[0]];
+  if (t >= 1) return points;
+  const exact = t * (points.length - 1);
+  const index = Math.floor(exact);
+  const rest = exact - index;
+  const from = points[index];
+  const to = points[Math.min(index + 1, points.length - 1)];
+  const tip = {
+    longitude: from.longitude + (to.longitude - from.longitude) * rest,
+    latitude: from.latitude + (to.latitude - from.latitude) * rest,
+  };
+  return [...points.slice(0, index + 1), tip];
+}
+
 export function arcBounds(points: { longitude: number; latitude: number }[]) {
   const lngs = points.map((point) => point.longitude);
   const lats = points.map((point) => point.latitude);

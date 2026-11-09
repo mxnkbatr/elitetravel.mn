@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { detailEntrance } from "./detail";
-import { introAlreadyPlayed, introPlan, markIntroPlayed, resetIntroForTests, shouldShowIntro } from "./intro";
+import { introAlreadyPlayed, introPlan, INTRO_CINEMATIC_MS, markIntroPlayed, resetIntroForTests, resolveIntroGate, shouldShowIntro } from "./intro";
 
 describe("brand intro", () => {
   afterEach(() => resetIntroForTests());
@@ -21,5 +21,14 @@ describe("brand intro", () => {
     expect(introPlan(true)).toEqual({ mode: "fade", duration: 650, zoom: false });
     expect(introPlan(false).zoom).toBe(true);
     expect(introPlan(false).mode).toBe("cinematic");
+    expect(INTRO_CINEMATIC_MS).toBeLessThanOrEqual(2000);
+    expect(introPlan(false).duration).toBe(INTRO_CINEMATIC_MS);
+  });
+
+  it("skips on the next launch once the intro has been seen", () => {
+    expect(resolveIntroGate(null)).toBe("play");
+    expect(resolveIntroGate("1")).toBe("skip");
+    markIntroPlayed();
+    expect(resolveIntroGate(null)).toBe("skip");
   });
 });

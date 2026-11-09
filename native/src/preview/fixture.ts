@@ -1,4 +1,4 @@
-import type { CatalogPage } from "../lib/types";
+import type { CatalogPage, LocalBooking } from "../lib/types";
 
 const img = (id: string) => `https://res.cloudinary.com/ev6fygsf/image/upload/elitetravel/tours/${id}`;
 
@@ -82,7 +82,54 @@ export const previewCatalog: CatalogPage = {
       itinerary: [
         { day: "1-р өдөр", title: "Улаанбаатар → Хайкоу шууд нислэг", detail: "Чингис хаан ОУНБ-аас орой 22:10 цагт ниснэ.", flight: "22:10 – 03:10 · Чингис хаан ОУНБ → Мейлан ОУНБ", hotel: "Hampton Hotel, Хайкоу" },
         { day: "2-р өдөр", title: "Хайкоу → Саняа · Байшилин шилэн гүүр", detail: "Шилэн гүүрээр алхаж Саняа руу хөдөлнө.", meals: "Өглөө, орой", hotel: "Timton Fuhe Hotel" },
+        { day: "4-р өдөр", title: "Задгай далайн аялал", detail: "Гурван цагийн задгай далайн аялал.", meals: "Өглөө, орой", hotel: "Timton Fuhe Hotel" },
+        { day: "5-р өдөр", title: "Атлантис усан парк", detail: "Усан паркад бүтэн өдөр.", meals: "Өглөө, орой", hotel: "Timton Fuhe Hotel" },
+        { day: "8-р өдөр", title: "Саняа → Хайкоу → Улаанбаатар · Сармагчингийн арал", detail: "Сармагчингийн арал үзээд буцах нислэг.", flight: "Буцах нислэг", meals: "Өглөө" },
       ],
+    },
+    {
+      id: "weeknd-world-tour",
+      title: "The Weeknd: Hong Kong аялал",
+      destination: "Хонг Конг",
+      destinationKey: "hongkong",
+      description: "Тусгай аялал",
+      price: 6290000,
+      oldPrice: 6590000,
+      duration: "5 өдөр · 4 шөнө",
+      nights: 4,
+      tag: "hot",
+      dates: "10/28 – 11/01",
+      stay: "Harbour Plaza & Degrees",
+      departure: "Улаанбаатар",
+      image: img("hongkong-skyline"),
+      gallery: [img("victoria-peak"), img("weeknd-stage")],
+      highlights: ["The Weeknd тоглолт", "Викториа оргил"],
     },
   ],
 };
+
+/** Sample passes for the preview only. Not written to the device and not a server booking. */
+export const previewPasses: Array<LocalBooking & { travellers: number }> = [
+  {
+    id: "ET-1042",
+    tourId: "hainan-4",
+    tourTitle: "Хайнань үндсэн аялал 11/10",
+    createdAt: "2026-11-02T03:00:00.000Z",
+    total: 5980000,
+    deposit: 1794000,
+    date: "2026-12-18",
+    status: "confirmed",
+    travellers: 2,
+  },
+  {
+    id: "ET-0988",
+    tourId: "bali",
+    tourTitle: "Бали, Индонез",
+    createdAt: "2026-10-20T03:00:00.000Z",
+    total: 5790000,
+    deposit: 2895000,
+    date: "Хүссэн үедээ",
+    status: "new",
+    travellers: 1,
+  },
+];

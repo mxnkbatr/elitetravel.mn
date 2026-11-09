@@ -15,7 +15,7 @@ Checked against the repository on 8 Nov 2026. No backend routes were added.
 - Saved tours sync with `PATCH /api/account` while signed in.
 - Loading, empty, error and offline states. The last successful catalogue is kept on device.
 - Mongolian UI. Brand colours and the public Cloudinary photos.
-- Motion, in code: a skippable intro after the static native splash (logo, then a coast photo zoom, then a fade into the app). It runs once per JS runtime, not on tab changes or foregrounding, and does not wait for the network. Reduced motion is a short fade with no zoom. Tour detail fades in and out through the native stack (`fade`, iOS and Android) and the hero scales from 1.06 to 1 with the native animation driver. That is not a shared-element transition. Cards use a press scale. Home sections rise in sequence unless reduced motion is on.
+- Motion, in code: the native splash and the first JS frame are the same centered 180pt logo on `#0b241d`. The intro then reveals the home hero and finishes within 2 seconds. It is skippable, plays on the first launch only, and later launches crossfade the splash straight into home. Tabs and foregrounding do not replay it. Reduced motion is a short fade with no zoom. Tour detail fades in and out through the native stack (`fade`, iOS and Android) and the hero scales from 1.06 to 1 with the native animation driver. That is not a shared-element transition. Cards use a press scale. Home sections rise in sequence unless reduced motion is on.
 
 ## Explicitly not done
 

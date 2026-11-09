@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { NativeMap } from "../components/NativeMap";
-import { Press, Txt } from "../components/ui";
+import { Press, RemoteImage, Txt } from "../components/ui";
 import { MAP_DESTINATIONS, stepDestination } from "../lib/map-pins";
 import { formatPrice } from "../lib/money";
 import { isBookable } from "../lib/tours";
@@ -13,10 +14,11 @@ import { fonts, useTheme } from "../theme";
 export function MapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { colors, fontsReady } = useTheme();
+  const { colors, fontsReady, reduceMotion } = useTheme();
   const catalog = useCatalog();
   const [index, setIndex] = useState(0);
-  const [cardOpen, setCardOpen] = useState(true);
+  const [cardOpen, setCardOpen] = useState(false);
+  const shown = useSharedValue(0);
   const [listOpen, setListOpen] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const dest = MAP_DESTINATIONS[index];
@@ -26,6 +28,13 @@ export function MapScreen() {
   );
   const from = tours.reduce<number | null>((lowest, tour) => (tour.price != null && (lowest == null || tour.price < lowest) ? tour.price : lowest), null);
   const openCount = catalog.tours.filter(isBookable).length;
+  const lead = tours[0];
+
+  useEffect(() => {
+    const next = cardOpen ? 1 : 0;
+    shown.value = reduceMotion ? next : withSpring(next, { damping: 18, stiffness: 180, mass: 0.8 });
+  }, [cardOpen, reduceMotion, shown]);
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(shown.value, [0, 1], [420, 0]) }] }));
 
   function go(step: number) {
     setIndex((current) => stepDestination(current, step));
@@ -45,8 +54,8 @@ export function MapScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#dfeee9" }}>
-      {mapFailed ? <FallbackList /> : <NativeMap active={dest.key} onSelect={select} onUnavailable={() => setMapFailed(true)} />}
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {mapFailed ? <FallbackList /> : <NativeMap active={dest.key} motion={!reduceMotion} onSelect={select} onUnavailable={() => setMapFailed(true)} />}
 
       <View pointerEvents="box-none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
         <View pointerEvents="box-none" style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -60,7 +69,8 @@ export function MapScreen() {
 
         <View pointerEvents="box-none" style={{ position: "absolute", left: 12, right: 12, bottom: Math.max(insets.bottom, 10) + 76, alignItems: "center" }}>
           {cardOpen ? (
-            <View style={{ width: "100%", maxWidth: 440, backgroundColor: colors.card, borderRadius: 28, padding: 16 }}>
+            <Animated.View style={[{ width: "100%", maxWidth: 440, backgroundColor: colors.card, borderRadius: 28, padding: 16, overflow: "hidden" }, sheetStyle]}>
+              {lead?.image ? <RemoteImage uri={lead.image} width={900} height={420} alt="" style={{ width: "100%", height: 96, borderRadius: 16, marginBottom: 10 }} /> : null}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Press label="Өмнөх" onPress={() => go(-1)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ fontSize: 22, color: colors.text }}>‹</Text>
@@ -90,7 +100,7 @@ export function MapScreen() {
               <Press label="Хаах" onPress={() => setCardOpen(false)} style={{ alignSelf: "center", marginTop: 8, padding: 6 }}>
                 <Text style={{ color: colors.muted }}>Хаах</Text>
               </Press>
-            </View>
+            </Animated.View>
           ) : (
             <Press label={`${dest.name} карт нээх`} onPress={() => setCardOpen(true)} style={{ height: 48, paddingHorizontal: 18, borderRadius: 24, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: colors.text, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{dest.name} · {tours.length} аялал ▴</Text>
