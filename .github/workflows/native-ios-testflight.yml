@@ -231,6 +231,49 @@ jobs:
           open(path, "w").write(text)
           print(f"Manual distribution signing set on {len(matches)} app target configurations")
           PY
+          # GitHub release assets often return 504. Download the MapLibre binary
+          # ourselves, then point the Swift package at that local framework.
+          ZIP="$RUNNER_TEMP/MapLibre.dynamic.xcframework.zip"
+          curl -fL --retry 40 --retry-all-errors --retry-delay 5 -o "$ZIP" \
+            "https://github.com/maplibre/maplibre-native/releases/download/ios-v6.31.0/MapLibre.dynamic.xcframework.zip"
+          rm -rf MapLibreLocal
+          mkdir -p MapLibreLocal
+          unzip -q "$ZIP" -d MapLibreLocal
+          cat > MapLibreLocal/Package.swift << 'SWIFT'
+          // swift-tools-version:5.3
+          import PackageDescription
+          let package = Package(
+            name: "MapLibre Native",
+            products: [.library(name: "MapLibre", targets: ["MapLibre"])],
+            targets: [.binaryTarget(name: "MapLibre", path: "MapLibre.xcframework")]
+          )
+          SWIFT
+          python3 - << 'PY'
+          import re
+          from pathlib import Path
+          pattern = re.compile(
+              r'isa = XCRemoteSwiftPackageReference;\s*'
+              r'repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";\s*'
+              r'requirement = \{\s*kind = exactVersion;\s*version = 6\.31\.0;\s*\};',
+              re.S,
+          )
+          found = 0
+          for path in Path(".").rglob("project.pbxproj"):
+              text = path.read_text()
+              if "maplibre-gl-native-distribution" not in text:
+                  continue
+              relative = "../MapLibreLocal" if "Pods.xcodeproj" in str(path) else "MapLibreLocal"
+              replacement = 'isa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = ' + relative + ';'
+              updated, count = pattern.subn(replacement, text)
+              if count == 0:
+                  start = text.find("maplibre-gl-native-distribution")
+                  raise SystemExit("Could not rewrite MapLibre package reference in " + str(path) + ":\n" + text[max(0, start - 300):start + 400])
+              path.write_text(updated)
+              found += count
+              print(f"Pointed {count} MapLibre package reference(s) in {path} at {relative}")
+          if found == 0:
+              raise SystemExit("MapLibre Swift package reference was not in the Xcode projects")
+          PY
           compile() {
             xcodebuild archive \
               -workspace EliteTravel.xcworkspace \
