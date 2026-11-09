@@ -8,6 +8,7 @@ import Animated, { cancelAnimation, Easing, interpolate, useAnimatedScrollHandle
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { ItineraryTimeline } from "../components/ItineraryTimeline";
+import { SaveHeart } from "../components/SaveHeart";
 import { Fade, FlyingHero, Rise, SpringPress, useMotionFlag } from "../components/motion";
 import { TourSkeleton } from "../components/skeleton";
 import { GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
@@ -170,9 +171,7 @@ function TourBody({ tourId }: { tourId: string }) {
         </Press>
       </Fade>
       <Fade delay={40} style={{ position: "absolute", top: insets.top + 8, right: space.lg, zIndex: 30 }}>
-        <Press label={saved ? "Хадгалснаас хасах" : "Хадгалах"} onPress={() => void session.toggleSaved(tour.id)} style={roundButton}>
-          <Ionicons name={saved ? "heart" : "heart-outline"} size={20} color="white" />
-        </Press>
+        <SaveHeart saved={saved} onToggle={() => void session.toggleSaved(tour.id)} />
       </Fade>
       <Fade delay={140} style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 30 }} >
         <GlassBar style={{ marginHorizontal: 14, marginBottom: Math.max(insets.bottom, 12), minHeight: 76, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: space.lg, paddingRight: space.sm, paddingVertical: space.sm }}>

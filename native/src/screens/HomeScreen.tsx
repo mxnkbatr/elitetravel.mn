@@ -6,6 +6,7 @@ import { RefreshControl, Text, TextInput, View, useWindowDimensions, type HostIn
 import Animated, { LinearTransition, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CinematicLine, Fade, Stagger, useKenBurns, useMotionFlag } from "../components/motion";
+import { SaveHeart } from "../components/SaveHeart";
 import { HomeSkeleton } from "../components/skeleton";
 import { StoriesRow, StoryViewer } from "../components/Stories";
 import { Banner, cardShadow, Display, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
@@ -18,6 +19,7 @@ import type { Tour } from "../lib/types";
 import { homeLayout } from "../motion/homeLayout";
 import { stageHeroFlight } from "../motion/heroFlight";
 import { useCatalog } from "../state/catalog";
+import { useSession } from "../state/session";
 import { brand, fonts, radii, space, useTheme, wash } from "../theme";
 
 export function HomeScreen() {
@@ -27,6 +29,7 @@ export function HomeScreen() {
   const layout = homeLayout(height);
   const { colors, fontsReady, reduceMotion } = useTheme();
   const catalog = useCatalog();
+  const session = useSession();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TourFilter>({ type: "all" });
   const [story, setStory] = useState<number | null>(null);
@@ -134,7 +137,7 @@ export function HomeScreen() {
           ) : null}
           {results.map((tour, index) => (
             <Animated.View key={tour.id} layout={reduceMotion ? undefined : LinearTransition.duration(280)}>
-              <TourCard tour={tour} index={index} height={layout.cardHeight} plateInset={layout.plateInset} compact={layout.compact} onOpen={(id) => router.push({ pathname: "/tour/[id]", params: { id } })} />
+              <TourCard tour={tour} index={index} height={layout.cardHeight} plateInset={layout.plateInset} compact={layout.compact} saved={session.saved.includes(tour.id)} onToggle={() => void session.toggleSaved(tour.id)} onOpen={(id) => router.push({ pathname: "/tour/[id]", params: { id } })} />
             </Animated.View>
           ))}
         </View>
@@ -168,7 +171,7 @@ function FilterChip({ label, on, onPress, selected, onSelected }: { label: strin
   );
 }
 
-function TourCard({ tour, index, height, plateInset, compact, onOpen }: { tour: Tour; index: number; height: number; plateInset: number; compact: boolean; onOpen: (id: string) => void }) {
+function TourCard({ tour, index, height, plateInset, compact, saved, onToggle, onOpen }: { tour: Tour; index: number; height: number; plateInset: number; compact: boolean; saved: boolean; onToggle: () => void; onOpen: (id: string) => void }) {
   const { colors, fontsReady, reduceMotion } = useTheme();
   const imageRef = useRef<HostInstance>(null);
   function open() {
@@ -195,7 +198,8 @@ function TourCard({ tour, index, height, plateInset, compact, onOpen }: { tour: 
   const plate = colors.dark ? "rgba(18,40,36,0.94)" : "rgba(255,252,247,0.94)";
   return (
     <Stagger index={index}>
-      <Press scaleTo={0.98} label={tour.title} onPress={open} style={[{ height, borderRadius: radii.xxl, overflow: "hidden", backgroundColor: colors.card }, cardShadow]}>
+      <View style={[{ height, borderRadius: radii.xxl, backgroundColor: colors.card }, cardShadow]}>
+      <Press scaleTo={0.98} label={tour.title} onPress={open} style={{ flex: 1, borderRadius: radii.xxl, overflow: "hidden" }}>
         <View ref={imageRef} collapsable={false} style={{ flex: 1 }}>
           <RemoteImage uri={tour.image} width={1000} height={800} alt={tour.title} fade={false} style={{ width: "100%", height: "100%" }} />
         </View>
@@ -208,6 +212,8 @@ function TourCard({ tour, index, height, plateInset, compact, onOpen }: { tour: 
           </View>
         </View>
       </Press>
+      <SaveHeart saved={saved} onToggle={onToggle} style={{ position: "absolute", top: 8, right: 8, zIndex: 3 }} />
+      </View>
     </Stagger>
   );
 }
