@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appleMapsDirectionsUrl, arcBounds, flightArc, focusBounds, pinsForDestinationKeys, PUBLISHED_PINS, ROUTE_COLLECTION, stepDestination } from "./map-pins";
+import { appleMapsDirectionsUrl, arcBounds, flightArc, focusBounds, pinsForDestinationKeys, PUBLISHED_PINS, ROUTE_COLLECTION, sliceArc, stepDestination } from "./map-pins";
 
 describe("published map pins", () => {
   it("matches the website map coordinates and drops unknown keys", () => {
@@ -32,6 +32,17 @@ describe("published map pins", () => {
     expect(hainan.coordinates.at(-1)).toEqual([109.508, 18.247]);
     expect(focusBounds("bali")?.[2]).toBeGreaterThan(106);
     expect(focusBounds("not-a-place")).toBeNull();
+  });
+
+  it("draws the flight arc from Ulaanbaatar out to the pin", () => {
+    const arc = flightArc(PUBLISHED_PINS[0], 8);
+    expect(sliceArc(arc, 0)).toEqual([arc[0]]);
+    expect(sliceArc(arc, 1)).toEqual(arc);
+    const mid = sliceArc(arc, 0.5);
+    expect(mid.length).toBeGreaterThan(2);
+    expect(mid[0]).toEqual(arc[0]);
+    expect(mid.at(-1)?.latitude).toBeLessThan(arc[0].latitude);
+    expect(mid.at(-1)?.latitude).toBeGreaterThan(arc.at(-1)!.latitude);
   });
 
   it("builds an Apple Maps directions link from a real pin", () => {

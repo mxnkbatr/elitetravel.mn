@@ -1,113 +1,117 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COAST_PLATE } from "../lib/config";
-import { INTRO_SKIP_MS, introPlan, markIntroPlayed, shouldShowIntro, type IntroPlan } from "../motion/intro";
+import { INTRO_CINEMATIC_MS, INTRO_REDUCED_MS, INTRO_SEEN_KEY, INTRO_SKIP_MS, introPlan, markIntroPlayed } from "../motion/intro";
+import { SPLASH_BG, SPLASH_LOGO_WIDTH } from "../motion/splash";
 import { fonts, useTheme } from "../theme";
 import { RemoteImage } from "./ui";
 
+const HOLD = 180;
+const REVEAL = 780;
+const PAUSE = 140;
+
 /**
- * Runs after the static native splash has been hidden. Not a shared-element transition.
- * The travel photo scales with the native driver; reduced motion is opacity only.
+ * First frame matches the native splash: #0b241d with the 180pt logo centered.
+ * Then the coast photo settles into the home hero. Later launches do not mount this.
  */
-export function Intro() {
+export function Intro({ heroHeight, onFirstFrame, onDone }: { heroHeight: number; onFirstFrame: () => void; onDone: () => void }) {
   const insets = useSafeAreaInsets();
-  const { fontsReady } = useTheme();
-  const [plan, setPlan] = useState<IntroPlan | null>(null);
-  const [visible, setVisible] = useState(shouldShowIntro);
-  const cover = useRef(new Animated.Value(1)).current;
-  const logo = useRef(new Animated.Value(0)).current;
-  const image = useRef(new Animated.Value(0)).current;
-  const zoom = useRef(new Animated.Value(1.08)).current;
-  const skipped = useRef(false);
-  const running = useRef<Animated.CompositeAnimation | null>(null);
+  const { height } = useWindowDimensions();
+  const { fontsReady, reduceMotion, colors } = useTheme();
+  const frame = useSharedValue(0);
+  const [visible, setVisible] = useState(true);
+  const signaled = useRef(false);
+  const done = useRef(onDone);
+  done.current = onDone;
+
+  function finish() {
+    markIntroPlayed();
+    AsyncStorage.setItem(INTRO_SEEN_KEY, "1").catch(() => {});
+    setVisible(false);
+    done.current();
+  }
 
   useEffect(() => {
-    if (!visible) return;
-    let live = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduced) => {
-        if (live) setPlan(introPlan(reduced));
-      })
-      .catch(() => {
-        if (live) setPlan(introPlan(false));
-      });
-    return () => {
-      live = false;
-    };
-  }, [visible]);
-
-  useEffect(() => {
-    if (!plan || !visible) return;
-    skipped.current = false;
-    const finish = () => {
-      markIntroPlayed();
-      setVisible(false);
-    };
+    const plan = introPlan(reduceMotion);
     if (!plan.zoom) {
-      logo.setValue(1);
-      image.setValue(0);
-      const fade = Animated.timing(cover, { toValue: 0, duration: plan.duration, useNativeDriver: true });
-      running.current = fade;
-      fade.start(({ finished }) => {
-        if (finished && !skipped.current) finish();
-      });
-      return () => fade.stop();
+      frame.value = withDelay(80, withTiming(2, { duration: INTRO_REDUCED_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
+        if (finished) runOnJS(finish)();
+      }));
+      return () => cancelAnimation(frame);
     }
-    const sequence = Animated.sequence([
-      Animated.timing(logo, { toValue: 1, duration: 520, useNativeDriver: true }),
-      Animated.parallel([
-        Animated.timing(image, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(zoom, { toValue: 1, duration: 1600, useNativeDriver: true }),
-      ]),
-      Animated.delay(280),
-      Animated.timing(cover, { toValue: 0, duration: 480, useNativeDriver: true }),
-    ]);
-    running.current = sequence;
-    sequence.start(({ finished }) => {
-      if (finished && !skipped.current) finish();
-    });
-    return () => sequence.stop();
-  }, [cover, image, logo, plan, visible, zoom]);
+    const settle = Math.max(0, INTRO_CINEMATIC_MS - HOLD - REVEAL - PAUSE);
+    frame.value = withDelay(
+      HOLD,
+      withTiming(1, { duration: REVEAL, easing: Easing.out(Easing.cubic) }, (revealed) => {
+        if (!revealed) return;
+        frame.value = withDelay(PAUSE, withTiming(2, { duration: settle, easing: Easing.inOut(Easing.cubic) }, (finished) => {
+          if (finished) runOnJS(finish)();
+        }));
+      }),
+    );
+    return () => cancelAnimation(frame);
+  }, [frame, reduceMotion]);
 
-  function skip() {
-    if (skipped.current) return;
-    skipped.current = true;
-    running.current?.stop();
-    Animated.timing(cover, { toValue: 0, duration: INTRO_SKIP_MS, useNativeDriver: true }).start(({ finished }) => {
-      if (finished) {
-        markIntroPlayed();
-        setVisible(false);
-      }
+  function signal() {
+    if (signaled.current) return;
+    signaled.current = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => onFirstFrame());
     });
   }
+
+  function skip() {
+    cancelAnimation(frame);
+    frame.value = withTiming(2, { duration: INTRO_SKIP_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
+      if (finished) runOnJS(finish)();
+    });
+  }
+
+  const windowStyle = useAnimatedStyle(() => {
+    if (reduceMotion) return { height, opacity: interpolate(frame.value, [0, 2], [1, 0]) };
+    return {
+      height: interpolate(frame.value, [0, 1, 1.35, 2], [height, height, heroHeight, heroHeight]),
+      opacity: interpolate(frame.value, [0, 1.55, 2], [1, 1, 0]),
+    };
+  });
+  const photoStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 0 : interpolate(frame.value, [0, 1], [0, 1], Extrapolation.CLAMP),
+    transform: [{ scale: reduceMotion ? 1 : interpolate(frame.value, [0, 1], [1.03, 1], Extrapolation.CLAMP) }],
+  }));
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion
+      ? interpolate(frame.value, [0, 2], [1, 0])
+      : interpolate(frame.value, [0, 0.45, 1], [1, 1, 0], Extrapolation.CLAMP),
+  }));
 
   if (!visible) return null;
 
   return (
-    <Animated.View accessibilityViewIsModal style={[styles.cover, { opacity: cover }]} pointerEvents="auto">
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: image, transform: [{ scale: plan?.zoom ? zoom : 1 }] }]}>
-        <RemoteImage uri={COAST_PLATE} width={1400} height={1800} alt="" style={{ width: "100%", height: "100%" }} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(5,22,20,0.28)" }]} />
-      </Animated.View>
-      <View style={[styles.brand, { backgroundColor: plan?.zoom ? "transparent" : "#0b241d" }]}>
-        <Animated.View style={{ opacity: logo, transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }}>
-          <Text style={[styles.elite, { fontFamily: fontsReady ? fonts.sansBold : undefined }]}>ELITE</Text>
-          <Text style={[styles.travel, { fontFamily: fontsReady ? fonts.sansSemi : undefined }]}>TRAVEL</Text>
+    <View accessibilityViewIsModal style={styles.cover} pointerEvents="auto" onLayout={signal}>
+      <Animated.View style={[styles.plate, windowStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, photoStyle]}>
+          <RemoteImage uri={COAST_PLATE} width={1400} height={1800} alt="" fade={false} style={{ width: "100%", height: "100%" }} />
+          <LinearGradient colors={["rgba(6,18,16,0.55)", "rgba(6,18,16,0.08)", "rgba(6,18,16,0.22)", "rgba(6,18,16,0.78)", colors.bg]} locations={[0, 0.28, 0.5, 0.84, 1]} style={StyleSheet.absoluteFill} />
         </Animated.View>
-      </View>
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[styles.logo, logoStyle]}>
+        <Image accessibilityLabel="Elite Travel" source={require("../../assets/splash-logo.png")} resizeMode="contain" style={{ width: SPLASH_LOGO_WIDTH, height: SPLASH_LOGO_WIDTH }} />
+      </Animated.View>
       <Pressable accessibilityRole="button" accessibilityLabel="Танилцуулгыг алгасах" onPress={skip} style={[styles.skip, { top: insets.top + 12 }]}>
-        <Text style={styles.skipText}>Алгасах</Text>
+        <Text style={[styles.skipText, { fontFamily: fontsReady ? fonts.sansSemi : undefined }]}>Алгасах</Text>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  cover: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#0b241d", zIndex: 50 },
-  brand: { flex: 1, alignItems: "center", justifyContent: "center" },
-  elite: { color: "white", letterSpacing: 8, fontSize: 28 },
-  travel: { color: "rgba(255,255,255,0.78)", letterSpacing: 6, fontSize: 12, textAlign: "center", marginTop: 6 },
+  cover: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
+  plate: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden", backgroundColor: SPLASH_BG },
+  logo: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
   skip: { position: "absolute", right: 16, minHeight: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" },
   skipText: { color: "white", fontWeight: "700" },
 });

@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { haptic } from "../../src/components/ui";
+import { DOCK_HEIGHT } from "../../src/motion/homeLayout";
 import { brand, fonts, radii, shadows, useTheme } from "../../src/theme";
 
 type DockProps = {
@@ -46,7 +47,7 @@ function Dock({ state, navigateToTab }: DockProps) {
         left: 16,
         right: 16,
         bottom: Math.max(insets.bottom, 10),
-        height: 68,
+        height: DOCK_HEIGHT,
         borderRadius: radii.dock,
         backgroundColor: colors.dark ? "rgba(12,28,26,0.94)" : "rgba(255,252,247,0.94)",
         overflow: "hidden",

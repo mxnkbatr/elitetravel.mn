@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, View, type HostInstance } from "react-native";
-import Animated, { cancelAnimation, Easing, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
+import { ItineraryTimeline } from "../components/ItineraryTimeline";
 import { Fade, FlyingHero, Rise, SpringPress, useMotionFlag } from "../components/motion";
 import { TourSkeleton } from "../components/skeleton";
 import { GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
@@ -133,21 +135,7 @@ function TourBody({ tourId }: { tourId: string }) {
               ))}
             </View>
           ) : null}
-          {tour.itinerary?.length ? (
-            <View style={{ marginTop: space.xxl, gap: space.md }}>
-              <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Хөтөлбөр</Text>
-              {tour.itinerary.map((day, index) => (
-                <View key={`${day.day}-${day.title}`} style={{ paddingLeft: space.md, borderLeftWidth: 1, borderLeftColor: colors.accent }}>
-                  <Text style={{ color: colors.accent, fontWeight: "700", fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{day.day || `${index + 1}-р өдөр`}</Text>
-                  <Text style={{ color: colors.text, fontSize: 18, fontFamily: fontsReady ? fonts.display : undefined }}>{day.title}</Text>
-                  <Txt muted>{day.detail}</Txt>
-                  {day.flight ? <Txt>Нислэг: {day.flight}</Txt> : null}
-                  {day.meals ? <Txt muted>Хоол: {day.meals}</Txt> : null}
-                  {day.hotel ? <Txt muted>Буудал: {day.hotel}</Txt> : null}
-                </View>
-              ))}
-            </View>
-          ) : null}
+          <ItineraryTimeline tour={tour} scrollY={scrollY} />
           {tour.includes?.length ? (
             <View style={{ marginTop: space.xxl, gap: space.sm }}>
               <Text style={{ fontSize: 22, color: colors.text, fontFamily: fontsReady ? fonts.display : undefined }}>Үнэд багтсан</Text>
@@ -175,6 +163,7 @@ function TourBody({ tourId }: { tourId: string }) {
         </Rise>
       </Animated.ScrollView>
       <FlyingHero id={tour.id} uri={hero} from={flight} destRef={heroRef} onDone={() => setSettled(true)} />
+      <StickyTitle title={tour.title} scrollY={scrollY} top={insets.top} />
       <Fade delay={40} style={{ position: "absolute", top: insets.top + 8, left: space.lg, zIndex: 30 }}>
         <Press label="Буцах" onPress={() => router.back()} style={roundButton}>
           <Ionicons name="chevron-back" size={20} color="white" />
@@ -211,6 +200,17 @@ function TourBody({ tourId }: { tourId: string }) {
         </Press>
       ) : null}
     </View>
+  );
+}
+
+function StickyTitle({ title, scrollY, top }: { title: string; scrollY: SharedValue<number>; top: number }) {
+  const { colors, fontsReady } = useTheme();
+  const style = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [48, 110], [0, 1]) }));
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 25, paddingTop: top + 10, paddingBottom: 12, alignItems: "center", overflow: "hidden" }, style]}>
+      <BlurView intensity={48} tint={colors.dark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
+      <Text numberOfLines={1} style={{ marginHorizontal: 72, color: colors.text, fontSize: 15, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{title}</Text>
+    </Animated.View>
   );
 }
 
