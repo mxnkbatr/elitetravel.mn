@@ -3,14 +3,16 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cardShadow, Press, RemoteImage, ScreenScrollSpacer, StateBlock, Txt } from "../components/ui";
+import { Rise } from "../components/motion";
+import { TripsSkeleton } from "../components/skeleton";
+import { cardShadow, Press, RemoteImage, ScreenScrollSpacer, Txt } from "../components/ui";
 import { STATUS_LABEL } from "../lib/labels";
 import { formatPrice } from "../lib/money";
 import { isBookable } from "../lib/tours";
 import { useCatalog } from "../state/catalog";
 import { useDeviceBookings } from "../state/device-bookings";
 import { useSession } from "../state/session";
-import { fonts, useTheme } from "../theme";
+import { fonts, radii, space, typeScale, useTheme } from "../theme";
 
 type Tab = "requests" | "saved";
 
@@ -38,12 +40,20 @@ export function TripsScreen() {
   const loading = session.status === "loading" || !device.ready;
   const requestsUnknown = !loading && device.bookings.length === 0 && (session.status === "offline" || refreshError != null);
 
-  if (loading) return <StateBlock busy title="Хүсэлтийг шалгаж байна" />;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + space.md, paddingHorizontal: space.lg }}>
+        <Text style={{ color: colors.text, fontSize: typeScale.display, lineHeight: 36, fontFamily: fontsReady ? fonts.display : undefined }}>Миний аялал</Text>
+        <Text style={{ color: colors.muted, marginTop: space.xs, fontFamily: fontsReady ? fonts.sans : undefined }}>Хүсэлт болон хадгалсан аяллууд</Text>
+        <TripsSkeleton />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 18 }}>
-      <Text style={{ color: colors.text, fontSize: 34, lineHeight: 36, fontFamily: fontsReady ? fonts.display : undefined }}>Миний аялал</Text>
-      <Text style={{ color: colors.muted, marginTop: 4 }}>Хүсэлт болон хадгалсан аяллууд</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingTop: insets.top + space.md, paddingHorizontal: space.lg }}>
+      <Text style={{ color: colors.text, fontSize: typeScale.display, lineHeight: 36, fontFamily: fontsReady ? fonts.display : undefined }}>Миний аялал</Text>
+      <Text style={{ color: colors.muted, marginTop: space.xs, fontFamily: fontsReady ? fonts.sans : undefined }}>Хүсэлт болон хадгалсан аяллууд</Text>
       <View style={{ flexDirection: "row", backgroundColor: "rgba(10,42,38,0.06)", borderRadius: 16, padding: 4, marginTop: 16 }}>
         {(
           [
@@ -72,17 +82,16 @@ export function TripsScreen() {
               </Press>
             </View>
           ) : device.bookings.length === 0 ? (
-            <View style={[{ alignItems: "center", backgroundColor: colors.card, borderRadius: 28, paddingHorizontal: 22, paddingVertical: 28 }, cardShadow]}>
-              <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name="ticket-outline" size={28} color="#ffffff" />
+            <Rise style={[{ alignItems: "center", backgroundColor: colors.card, borderRadius: radii.xxl, paddingHorizontal: space.xl, paddingVertical: space.xxl }, cardShadow]}>
+              <View style={{ width: 64, height: 64, borderRadius: radii.lg, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="ticket-outline" size={28} color={colors.onAccent} />
               </View>
-              <Text style={{ color: colors.text, fontSize: 22, textAlign: "center", marginTop: 16, fontFamily: fontsReady ? fonts.display : undefined }}>Анхны аяллаа сонгох уу?</Text>
-              <Txt muted style={{ textAlign: "center", marginTop: 8 }}>Таалагдсан аялал дээрээ «Захиалах» дараад хэдхэн алхмаар хүсэлтээ илгээгээрэй.</Txt>
-              {session.status === "guest" ? <Txt muted style={{ textAlign: "center", marginTop: 8 }}>Энэ хоосон жагсаалт бүртгэлийн бүх захиалга биш. Нэвтрэхэд бүртгэлийн хүсэлт нэмэгдэнэ.</Txt> : null}
-              <Press label="Аялал сонгох" onPress={() => router.push("/")} style={{ marginTop: 16, height: 48, paddingHorizontal: 22, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: colors.onAccent, fontWeight: "700" }}>Аялал сонгох →</Text>
+              <Text style={{ color: colors.text, fontSize: 22, textAlign: "center", marginTop: space.lg, fontFamily: fontsReady ? fonts.display : undefined }}>Анхны аяллаа сонгох уу?</Text>
+              <Txt muted style={{ textAlign: "center", marginTop: space.sm }}>Таалагдсан аялал дээрээ «Захиалах» дараад хэдхэн алхмаар хүсэлтээ илгээгээрэй.</Txt>
+              <Press label="Аялал сонгох" onPress={() => router.push("/")} style={{ marginTop: space.lg, height: 48, paddingHorizontal: space.xl, borderRadius: radii.pill, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: colors.onAccent, fontWeight: "700", fontFamily: fontsReady ? fonts.sansBold : undefined }}>Аялал сонгох →</Text>
               </Press>
-            </View>
+            </Rise>
           ) : (
             device.bookings.map((item) => {
               const tour = catalog.tourById(item.tourId);
@@ -126,7 +135,7 @@ export function TripsScreen() {
 
       {ideas.length ? (
         <View style={{ marginTop: 28 }}>
-          <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Танд таалагдаж магадгүй</Text>
+          <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Танд таалагдаж магадгүй</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingTop: 12 }}>
             {ideas.map((tour) => (
               <Press key={tour.id} label={tour.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: tour.id } })} style={{ width: 200 }}>
