@@ -14,6 +14,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the 1.5 build state
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_P8}" ] || [ -z "${ASC_KEY_ID}" ] || [ -z "${ASC_ISSUER_ID}" ]; then
+            echo "Missing App Store Connect secret."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+          python3 - << 'PY'
+          import base64, json, os, subprocess, time, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
+          now = int(time.time())
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          header = b64(json.dumps({"alg": "ES256", "kid": os.environ["ASC_KEY_ID"], "typ": "JWT"}).encode())
+          payload = b64(json.dumps({"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"}).encode())
+          signed = f"{header}.{payload}".encode()
+          der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+          i = 2
+          if der[1] & 0x80:
+              i = 2 + (der[1] & 0x7F)
+          assert der[i] == 2
+          i += 1
+          rlen = der[i]; i += 1
+          r = der[i:i + rlen]; i += rlen
+          assert der[i] == 2
+          i += 1
+          slen = der[i]; i += 1
+          s = der[i:i + slen]
+          token = signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              with urllib.request.urlopen(req, timeout=60) as res:
+                  return json.load(res)
+          apps = api("/v1/apps?filter[bundleId]=mn.elitetravel.app&limit=1")
+          app_id = apps["data"][0]["id"]
+          versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=20")
+          version_id = next(item["id"] for item in versions["data"] if item["attributes"]["version"] == "1.5")
+          builds = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
+          for item in builds.get("data", []):
+              attrs = item["attributes"]
+              print(f"version=1.5 build={attrs.get('version')} id={item['id']} processingState={attrs.get('processingState')} uploaded={attrs.get('uploadedDate')}")
+          PY
+          rm -rf "$RUNNER_TEMP/asc"
+
   gate:
     runs-on: ubuntu-latest
     outputs:
