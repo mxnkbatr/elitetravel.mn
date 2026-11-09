@@ -256,14 +256,22 @@ jobs:
               if live is None or ver_key(version) > ver_key(live):
                   live = version
           print(f"Highest store version seen: {live or 'none'}. Highest prerelease: {best[0] if best else 'none'}.")
-          # This release is exactly 1.6 (1). Do not move 1.4 or attach this binary to it.
-          marketing, build = "1.6", "1"
-          if best is not None and best[0] == "1.6":
-              builds = api(f"/v1/preReleaseVersions/{best[1]}/builds?limit=50&fields[builds]=version")
-              for item in builds.get("data", []):
-                  if str(item.get("attributes", {}).get("version") or "") == "1":
-                      raise SystemExit("1.6 (1) already exists. Refusing to upload a duplicate.")
-          print("Uploading version 1.6 build 1. Version 1.4 is left unchanged.")
+          # 1.6 (1) is the build already in flight. This upload is exactly 1.6 (2).
+          marketing, build = "1.6", "2"
+          version_id = next((item["id"] for item in versions.get("data", []) if item.get("attributes", {}).get("version") == "1.6"), None)
+          if version_id is None:
+              raise SystemExit("1.6 (1) is not registered yet. Refusing to upload 1.6 (2).")
+          builds = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=50&fields[builds]=version")
+          found_one = False
+          for item in builds.get("data", []):
+              number = str(item.get("attributes", {}).get("version") or "")
+              if number == "2":
+                  raise SystemExit("1.6 (2) already exists. Refusing to upload a duplicate.")
+              if number == "1":
+                  found_one = True
+          if not found_one:
+              raise SystemExit("1.6 (1) is not registered yet. Refusing to upload 1.6 (2).")
+          print("Uploading version 1.6 build 2. Versions 1.4 and 1.6 (1) are left unchanged.")
           open(os.environ["GITHUB_ENV"], "a").write(f"MARKETING_VERSION={marketing}\nBUILD_NUMBER={build}\n")
           PY
 

@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "mn.elitetravel.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleDisplayName": "Elite Travel",
