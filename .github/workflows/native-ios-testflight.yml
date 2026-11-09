@@ -166,11 +166,12 @@ jobs:
             *."$BUNDLE_ID") echo "Provisioning profile matches $BUNDLE_ID" ;;
             *) echo "Provisioning profile does not match $BUNDLE_ID"; exit 1 ;;
           esac
-          if /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" /dev/stdin <<< "$DECODED" >/dev/null 2>&1; then
-            echo "Profile includes push entitlement. The native app does not enable push."
-          else
-            echo "Profile has no push entitlement."
+          APS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" /dev/stdin <<< "$DECODED" 2>/dev/null || true)
+          if [ -z "$APS" ]; then
+            echo "Profile has no aps-environment entitlement."
+            exit 1
           fi
+          echo "Profile aps-environment=$APS"
           echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
           rm -f $RUNNER_TEMP/p.mobileprovision
 
@@ -247,14 +248,14 @@ jobs:
               if live is None or ver_key(version) > ver_key(live):
                   live = version
           print(f"Highest store version seen: {live or 'none'}. Highest prerelease: {best[0] if best else 'none'}.")
-          # This release is exactly 1.5 (1). Do not move 1.4 or attach this binary to it.
-          marketing, build = "1.5", "1"
-          if best is not None and best[0] == "1.5":
+          # This release is exactly 1.6 (1). Do not move 1.4 or attach this binary to it.
+          marketing, build = "1.6", "1"
+          if best is not None and best[0] == "1.6":
               builds = api(f"/v1/preReleaseVersions/{best[1]}/builds?limit=50&fields[builds]=version")
               for item in builds.get("data", []):
                   if str(item.get("attributes", {}).get("version") or "") == "1":
-                      raise SystemExit("1.5 (1) already exists. Refusing to upload a duplicate.")
-          print("Uploading version 1.5 build 1. Version 1.4 is left unchanged.")
+                      raise SystemExit("1.6 (1) already exists. Refusing to upload a duplicate.")
+          print("Uploading version 1.6 build 1. Version 1.4 is left unchanged.")
           open(os.environ["GITHUB_ENV"], "a").write(f"MARKETING_VERSION={marketing}\nBUILD_NUMBER={build}\n")
           PY
 
