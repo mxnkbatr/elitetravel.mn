@@ -23,11 +23,17 @@
         "NSCameraUsageDescription": "Паспорт болон баримтын зураг авахад камер ашиглана.",
         "NSPhotoLibraryUsageDescription": "Баримтын зураг сонгоход зургийн сан ашиглана.",
         "NSLocationWhenInUseUsageDescription": "Elite Travel does not request or use your location. The linked map library references Core Location, so iOS requires this text. The app never asks for location permission.",
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "mn.elitetravel.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0b241d"
@@ -64,6 +70,16 @@
         {
           "android": {
             "locationEngine": "default"
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
           }
         }
       ]

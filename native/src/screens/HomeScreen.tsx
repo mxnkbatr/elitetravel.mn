@@ -6,6 +6,7 @@ import { ScrollView, Text, TextInput, View, type HostInstance } from "react-nati
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CinematicLine, Fade, Stagger, useKenBurns, useMotionFlag } from "../components/motion";
+import { SaveHeart } from "../components/SaveHeart";
 import { HomeSkeleton } from "../components/skeleton";
 import { Banner, cardShadow, Display, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
 import { COAST_PLATE } from "../lib/config";
@@ -14,6 +15,7 @@ import { isBookable, listedTours, searchTours } from "../lib/tours";
 import type { Tour } from "../lib/types";
 import { stageHeroFlight } from "../motion/heroFlight";
 import { useCatalog } from "../state/catalog";
+import { useSession } from "../state/session";
 import { brand, fonts, radii, space, typeScale, useTheme, wash } from "../theme";
 
 const HERO = 508;
@@ -23,6 +25,7 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { colors, fontsReady, reduceMotion } = useTheme();
   const catalog = useCatalog();
+  const session = useSession();
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState("all");
   const scrollY = useSharedValue(0);
@@ -129,7 +132,14 @@ export function HomeScreen() {
       </Fade>
       <View style={{ paddingHorizontal: space.xl, paddingTop: space.md, gap: space.lg }}>
         {results.map((tour, index) => (
-          <TourCard key={tour.id} tour={tour} index={index} onOpen={(id) => router.push({ pathname: "/tour/[id]", params: { id } })} />
+          <TourCard
+            key={tour.id}
+            tour={tour}
+            index={index}
+            saved={session.saved.includes(tour.id)}
+            onToggle={() => void session.toggleSaved(tour.id)}
+            onOpen={(id) => router.push({ pathname: "/tour/[id]", params: { id } })}
+          />
         ))}
       </View>
       {catalog.news[0] ? (
@@ -149,7 +159,7 @@ export function HomeScreen() {
   );
 }
 
-function TourCard({ tour, index, onOpen }: { tour: Tour; index: number; onOpen: (id: string) => void }) {
+function TourCard({ tour, index, saved, onToggle, onOpen }: { tour: Tour; index: number; saved: boolean; onToggle: () => void; onOpen: (id: string) => void }) {
   const { colors, fontsReady, reduceMotion } = useTheme();
   const imageRef = useRef<HostInstance>(null);
   function open() {
@@ -175,19 +185,22 @@ function TourCard({ tour, index, onOpen }: { tour: Tour; index: number; onOpen: 
   }
   return (
     <Stagger index={index}>
-      <Press scaleTo={0.98} label={tour.title} onPress={open} style={[{ height: 280, borderRadius: radii.xxl, overflow: "hidden", backgroundColor: colors.card }, cardShadow]}>
-        <View ref={imageRef} collapsable={false} style={{ flex: 1 }}>
-          <RemoteImage uri={tour.image} width={1000} height={800} alt={tour.title} fade={false} style={{ width: "100%", height: "100%" }} />
-        </View>
-        <View pointerEvents="none" style={{ position: "absolute", left: space.md, right: space.md, bottom: space.md, backgroundColor: "rgba(255,252,247,0.94)", borderRadius: radii.lg, paddingHorizontal: 14, paddingVertical: space.md }}>
-          <Text style={{ color: colors.muted, fontSize: typeScale.caption, fontWeight: "700", fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{tour.destination}</Text>
-          <Text style={{ color: colors.text, fontSize: typeScale.card, lineHeight: 26, fontFamily: fontsReady ? fonts.display : undefined }} numberOfLines={2}>{tour.title}</Text>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 6 }}>
-            <Text style={{ color: colors.muted, fontSize: typeScale.caption, flex: 1 }} numberOfLines={1}>{[tour.duration, tour.dates].filter(Boolean).join(" · ")}</Text>
-            <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 16, fontFamily: fontsReady ? fonts.sansBold : undefined }}>{formatPrice(tour.price)}</Text>
+      <View style={[{ height: 280, borderRadius: radii.xxl, overflow: "hidden", backgroundColor: colors.card }, cardShadow]}>
+        <Press scaleTo={0.98} label={tour.title} onPress={open} style={{ flex: 1 }}>
+          <View ref={imageRef} collapsable={false} style={{ flex: 1 }}>
+            <RemoteImage uri={tour.image} width={1000} height={800} alt={tour.title} fade={false} style={{ width: "100%", height: "100%" }} />
           </View>
-        </View>
-      </Press>
+          <View pointerEvents="none" style={{ position: "absolute", left: space.md, right: space.md, bottom: space.md, backgroundColor: "rgba(255,252,247,0.94)", borderRadius: radii.lg, paddingHorizontal: 14, paddingVertical: space.md }}>
+            <Text style={{ color: colors.muted, fontSize: typeScale.caption, fontWeight: "700", fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{tour.destination}</Text>
+            <Text style={{ color: colors.text, fontSize: typeScale.card, lineHeight: 26, fontFamily: fontsReady ? fonts.display : undefined }} numberOfLines={2}>{tour.title}</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 6 }}>
+              <Text style={{ color: colors.muted, fontSize: typeScale.caption, flex: 1 }} numberOfLines={1}>{[tour.duration, tour.dates].filter(Boolean).join(" · ")}</Text>
+              <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 16, fontFamily: fontsReady ? fonts.sansBold : undefined }}>{formatPrice(tour.price)}</Text>
+            </View>
+          </View>
+        </Press>
+        <SaveHeart saved={saved} onToggle={onToggle} style={{ position: "absolute", top: 12, right: 12, zIndex: 3 }} />
+      </View>
     </Stagger>
   );
 }

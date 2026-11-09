@@ -54,6 +54,7 @@ The web export draws the same style with `maplibre-gl` so the browser can show t
 - Account: `/api/account/code` creates the traveller if the email is new (`shouldCreateUser: true`). Нэвтрэх and Бүртгүүлэх are the same code. Бүртгүүлэх also sends the name. Requests use `credentials: "omit"` because Expo's iOS fetch otherwise lets URLSession handle cookies and can omit `Set-Cookie` from JavaScript. The session starts only when a Supabase `sb-` cookie is present on the response, including Expo's raw header lines. Logout, deletion, expiry (`user: null` or 401) and offline restore are covered by mocked tests. `/api/account/device` and `/api/account/device/login` are the Face ID routes.
 - Booking request: `POST /api/bookings` only after the traveller confirms. Tests never call it.
 - Trip: `/api/trip` with `x-trip-token`, `/api/trips` for status, `/api/payments/qpay/create` and `/api/payments/qpay/status`. `mock-pay` is not called.
+- Push: `POST /api/push` with `{ token, platform, tripTokens, staff: false }` and `DELETE /api/push` with `{ token }`. The token is an FCM registration token from `@react-native-firebase/messaging`, using the same Firebase iOS and Android files as `mobile/`. `staff` is always false. The call is made after sign-in when permission is already granted, after the profile toggle, and after a booking. It is not requested at launch.
 - Session cookies are stored in the platform secure store, split into chunks. Face ID secrets use biometric access control.
 
 See `PARITY.md` for what is finished and what is not.

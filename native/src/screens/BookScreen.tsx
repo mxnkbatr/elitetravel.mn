@@ -12,6 +12,7 @@ import { isBookable, tourDates } from "../lib/tours";
 import type { TripStatus } from "../lib/types";
 import { useCatalog } from "../state/catalog";
 import { useDeviceBookings } from "../state/device-bookings";
+import { usePush } from "../state/push";
 import { useSession } from "../state/session";
 import { fonts, useTheme } from "../theme";
 
@@ -25,6 +26,7 @@ export function BookScreen() {
   const catalog = useCatalog();
   const session = useSession();
   const device = useDeviceBookings();
+  const push = usePush();
   const tour = catalog.tourById(typeof id === "string" ? id : "");
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<BookingDraft>({ adults: 2, kidsOwnBed: 0, kidsSharedBed: 0, singleRooms: 0, name: session.profile?.name ?? "", phone: session.profile?.phone ?? "", date: "", note: "" });
@@ -59,6 +61,7 @@ export function BookScreen() {
         await device.remember({ id: createdBooking.id, tourId: tour.id, tourTitle: tour.title, token: createdBooking.token, createdAt: new Date().toISOString(), total: createdBooking.total, deposit: createdBooking.deposit, date: draft.date || undefined, status: createdBooking.status as TripStatus | undefined });
         await session.claimTokens([createdBooking.token]).catch(() => {});
       }
+      void push.offerAfterBooking(createdBooking.token ? [createdBooking.token] : []);
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : "Илгээгдсэнгүй.");
     } finally {
