@@ -244,12 +244,12 @@ jobs:
               CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
           }
           set +e
-          compile | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 80
+          compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 80
           status=${PIPESTATUS[0]}
           if [[ "$status" -ne 0 ]] && grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild.log"; then
             echo "MapLibre package download failed. Retrying the archive once."
             sleep 20
-            compile | tee "$RUNNER_TEMP/xcodebuild-retry.log" | tail -n 80
+            compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild-retry.log" | tail -n 80
             status=${PIPESTATUS[0]}
           fi
           set -e
@@ -317,6 +317,7 @@ jobs:
               with urllib.request.urlopen(req, timeout=60) as res:
                   return json.load(res)
           state = "NOT_FOUND"
+          build_id = ""
           for _ in range(12):
               data = api(f"/v1/builds?filter[app]={app_id}&filter[version]={build}&limit=10&fields[builds]=version,processingState,uploadedDate")
               match = None
@@ -326,13 +327,14 @@ jobs:
                       break
               if match:
                   state = match["attributes"].get("processingState") or "UNKNOWN"
-                  print(f"Build {marketing} ({build}) processingState={state}")
+                  build_id = match.get("id") or ""
+                  print(f"Build {marketing} ({build}) id={build_id} processingState={state}")
                   if state in ("VALID", "FAILED", "INVALID"):
                       break
               else:
                   print(f"Build {marketing} ({build}) is not listed yet.")
               time.sleep(30)
-          open(os.environ["RUNNER_TEMP"] + "/upload/processing.txt", "w").write(f"{marketing} {build} {state}\n")
+          open(os.environ["RUNNER_TEMP"] + "/upload/processing.txt", "w").write(f"{marketing} {build} {build_id} {state}\n")
           if state in ("FAILED", "INVALID"):
               raise SystemExit(f"App Store Connect marked the build {state}")
           PY
