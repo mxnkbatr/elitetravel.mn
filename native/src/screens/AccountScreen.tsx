@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, ScrollView, Text, View } from "react-native";
@@ -66,15 +67,44 @@ export function AccountScreen() {
         </View>
       )}
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
-      <View style={[{ marginTop: 4, gap: 8, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
-        <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Мэдэгдэл</Text>
-        <Txt muted>Захиалгын мэдэгдлийг сервер Firebase Cloud Messaging-ээр илгээдэг. Энэ Expo хувилбарт FCM төхөөрөмжийн токен авахад хэрэгтэй Firebase тохиргоог оруулаагүй тул мэдэгдэл бүртгэхгүй. Capacitor аппын түлхүүрийг энд хуулаагүй.</Txt>
-        <Press label="Утас" onPress={() => void Linking.openURL(PHONE_TEL)}><Text style={{ color: colors.accent, fontWeight: "700" }}>{PHONE_DISPLAY}</Text></Press>
-        <Txt muted>Эсвэл {PHONE_ALT}</Txt>
-        <Press label="Instagram" onPress={() => void Linking.openURL(INSTAGRAM)}><Text style={{ color: colors.accent, fontWeight: "700" }}>Instagram · @elitetravelmn</Text></Press>
-        <Txt muted>Үнэ, огноо, зураг серверээс ирнэ. Аппын загвар шинэчлэгдэхийн тулд шинэ хувилбар хэрэгтэй.</Txt>
+      <View style={[{ marginTop: 4, gap: 6, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
+        <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Холбоо барих</Text>
+        <Txt muted>Аялал, үнэ, огнооны талаар бидэнтэй холбогдоорой.</Txt>
+        <Press label={`Утас ${PHONE_DISPLAY}`} onPress={() => void Linking.openURL(PHONE_TEL)} style={contactRow}>
+          <View style={[contactIcon, { backgroundColor: colors.accent }]}>
+            <Ionicons name="call" size={18} color={colors.onAccent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>Утас</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", marginTop: 1, fontFamily: fontsReady ? fonts.sansBold : undefined }}>{PHONE_DISPLAY}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </Press>
+        <Press label={`Эсвэл ${PHONE_ALT}`} onPress={() => void Linking.openURL(`tel:${PHONE_ALT.replace(/[^\d+]/g, "")}`)} style={contactRow}>
+          <View style={[contactIcon, { backgroundColor: colors.bgSoft }]}>
+            <Ionicons name="call-outline" size={18} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>Эсвэл</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", marginTop: 1, fontFamily: fontsReady ? fonts.sansBold : undefined }}>{PHONE_ALT}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </Press>
+        <Press label="Instagram · @elitetravelmn" onPress={() => void Linking.openURL(INSTAGRAM)} style={contactRow}>
+          <View style={[contactIcon, { backgroundColor: colors.bgSoft }]}>
+            <Ionicons name="logo-instagram" size={18} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>Instagram</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", marginTop: 1, fontFamily: fontsReady ? fonts.sansBold : undefined }}>@elitetravelmn</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </Press>
       </View>
       <ScreenScrollSpacer />
     </ScrollView>
   );
 }
+
+const contactRow = { minHeight: 64, borderRadius: 18, flexDirection: "row" as const, alignItems: "center" as const, gap: 12 };
+const contactIcon = { width: 42, height: 42, borderRadius: 14, alignItems: "center" as const, justifyContent: "center" as const };
