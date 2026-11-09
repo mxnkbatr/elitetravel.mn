@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cardShadow, Field, Press, ScreenScrollSpacer, StateBlock, Txt } from "../components/ui";
 import { INSTAGRAM, PHONE_ALT, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
 import { useSession } from "../state/session";
-import { fonts, useTheme } from "../theme";
+import { fonts, radii, space, typeScale, useTheme } from "../theme";
 
 export function AccountScreen() {
   const router = useRouter();
@@ -26,12 +26,12 @@ export function AccountScreen() {
   if (session.status === "loading") return <StateBlock busy title="Бүртгэлийг шалгаж байна" />;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 18, gap: 14 }}>
-      <Text style={{ color: colors.text, fontSize: 28, fontFamily: fontsReady ? fonts.display : undefined }}>Профайл</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: space.xl, paddingTop: insets.top + space.lg, gap: space.md }}>
+      <Text style={{ color: colors.text, fontSize: typeScale.display, lineHeight: 36, fontFamily: fontsReady ? fonts.display : undefined }}>Профайл</Text>
       {session.error ? <Txt>{session.error}</Txt> : null}
       {session.status === "offline" && session.profile ? <Txt>Сүлжээгүй тул бүртгэл шинэчлэгдсэнгүй. Сүүлд хадгалсан нэрийг харуулж байна.</Txt> : null}
       {session.status === "guest" || (session.status === "offline" && !session.profile) ? (
-        <View style={[{ gap: 12, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
+        <View style={[{ gap: space.md, backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg }, cardShadow]}>
           <Txt>Имэйлээр нэг удаагийн код авч нэвтэрнэ. Нууц үг байхгүй.</Txt>
           {session.status === "offline" ? <Press label="Дахин шалгах" onPress={session.refresh}><Text style={{ color: colors.accent, fontWeight: "700" }}>Дахин шалгах</Text></Press> : null}
           <Press label="Нэвтрэх" onPress={() => router.push("/auth")} style={{ height: 52, borderRadius: 26, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
@@ -44,7 +44,7 @@ export function AccountScreen() {
           ) : null}
         </View>
       ) : (
-        <View style={[{ gap: 12, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
+        <View style={[{ gap: space.md, backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg }, cardShadow]}>
           <Txt>{session.profile?.email}</Txt>
           <Field label="Нэр" value={name} onChangeText={setName} />
           <Field label="Утас" value={phone} onChangeText={setPhone} keyboard="phone-pad" />
@@ -67,8 +67,8 @@ export function AccountScreen() {
         </View>
       )}
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
-      <View style={[{ marginTop: 4, gap: 6, backgroundColor: colors.card, borderRadius: 28, padding: 18 }, cardShadow]}>
-        <Text style={{ color: colors.text, fontSize: 26, fontFamily: fontsReady ? fonts.display : undefined }}>Холбоо барих</Text>
+      <View style={[{ marginTop: space.xs, gap: space.xs, backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg }, cardShadow]}>
+        <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Холбоо барих</Text>
         <Txt muted>Аялал, үнэ, огнооны талаар бидэнтэй холбогдоорой.</Txt>
         <Press label={`Утас ${PHONE_DISPLAY}`} onPress={() => void Linking.openURL(PHONE_TEL)} style={contactRow}>
           <View style={[contactIcon, { backgroundColor: colors.accent }]}>
@@ -106,5 +106,5 @@ export function AccountScreen() {
   );
 }
 
-const contactRow = { minHeight: 64, borderRadius: 18, flexDirection: "row" as const, alignItems: "center" as const, gap: 12 };
-const contactIcon = { width: 42, height: 42, borderRadius: 14, alignItems: "center" as const, justifyContent: "center" as const };
+const contactRow = { minHeight: 64, borderRadius: radii.lg, flexDirection: "row" as const, alignItems: "center" as const, gap: space.md };
+const contactIcon = { width: 42, height: 42, borderRadius: radii.sm, alignItems: "center" as const, justifyContent: "center" as const };

@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, TextInput, View, type ImageStyle, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { imageUrl } from "../lib/money";
-import { fonts, useTheme } from "../theme";
+import { fonts, radii, shadows, useTheme } from "../theme";
 
 export function haptic() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -67,9 +67,9 @@ export function Reveal({ children, delay = 0, style }: { children: ReactNode; de
   return <Animated.View style={[style, { opacity, transform: [{ translateY: rise }] }]}>{children}</Animated.View>;
 }
 
-export function RemoteImage({ uri, width, height, style, alt }: { uri: string; width: number; height?: number; style?: StyleProp<ImageStyle>; alt: string }) {
+export function RemoteImage({ uri, width, height, style, alt, fade = true }: { uri: string; width: number; height?: number; style?: StyleProp<ImageStyle>; alt: string; fade?: boolean }) {
   const { colors } = useTheme();
-  return <Image source={{ uri: imageUrl(uri, width, height) }} accessibilityLabel={alt} style={[{ backgroundColor: colors.bgSoft }, style]} contentFit="cover" transition={180} />;
+  return <Image source={{ uri: imageUrl(uri, width, height) }} accessibilityLabel={alt} style={[{ backgroundColor: colors.bgSoft }, style]} contentFit="cover" transition={fade ? 180 : 0} />;
 }
 
 export function Banner({ text }: { text: string }) {
@@ -156,22 +156,16 @@ export function HeroShade() {
   return <LinearGradient colors={["rgba(5,22,20,0.45)", "rgba(5,22,20,0.05)", "rgba(5,22,20,0.2)", "rgba(6,24,22,0.82)"]} locations={[0, 0.28, 0.55, 1]} style={StyleSheet.absoluteFill} />;
 }
 
-export const cardShadow = {
-  shadowColor: "#062a2a",
-  shadowOpacity: 0.1,
-  shadowRadius: 18,
-  shadowOffset: { width: 0, height: 10 },
-  elevation: 4,
-} as const;
+export const cardShadow = shadows.card;
 
 const styles = StyleSheet.create({
   display: { fontSize: 40, lineHeight: 42, letterSpacing: -0.8 },
-  banner: { marginHorizontal: 18, marginTop: 10, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 10 },
+  banner: { marginHorizontal: 18, marginTop: 10, borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 10 },
   state: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 12 },
   stateTitle: { fontSize: 28, textAlign: "center" },
-  button: { minHeight: 48, borderRadius: 24, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+  button: { minHeight: 48, borderRadius: radii.pill, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   stepRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
   step: { width: 44, height: 44, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
-  glass: { overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderRadius: 30 },
+  glass: { overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.xxl },
 });

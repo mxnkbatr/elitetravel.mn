@@ -1,8 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "../../src/theme";
+import { haptic } from "../../src/components/ui";
+import { brand, fonts, radii, shadows, useTheme } from "../../src/theme";
 
 type DockProps = {
   state: { index: number; routes: { key: string; name: string }[] };
@@ -16,9 +20,24 @@ const TABS = [
   { name: "account", label: "Профайл", icon: "person" },
 ] as const;
 
+const SPRING = { damping: 17, stiffness: 190, mass: 0.7 };
+
 function Dock({ state, navigateToTab }: DockProps) {
   const insets = useSafeAreaInsets();
-  const { colors, fontsReady } = useTheme();
+  const { colors, fontsReady, reduceMotion } = useTheme();
+  const [width, setWidth] = useState(0);
+  const visible = state.routes.filter((route) => TABS.some((tab) => tab.name === route.name));
+  const count = Math.max(visible.length, 1);
+  const tabW = width > 0 ? width / count : 0;
+  const x = useSharedValue(0);
+  useEffect(() => {
+    const next = state.index * tabW;
+    x.value = reduceMotion || tabW === 0 ? next : withSpring(next, SPRING);
+  }, [reduceMotion, state.index, tabW, x]);
+  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  const pill = colors.dark ? colors.accent : brand.emerald;
+  const onPill = colors.dark ? colors.onAccent : "#ffffff";
+
   return (
     <View
       accessibilityRole="tablist"
@@ -28,41 +47,55 @@ function Dock({ state, navigateToTab }: DockProps) {
         right: 16,
         bottom: Math.max(insets.bottom, 10),
         height: 68,
-        borderRadius: 34,
-        backgroundColor: colors.dark ? "rgba(15,36,33,0.94)" : "rgba(255,252,247,0.96)",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-around",
-        shadowColor: "#062a2a",
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 8,
+        borderRadius: radii.dock,
+        backgroundColor: colors.dark ? "rgba(12,28,26,0.94)" : "rgba(255,252,247,0.94)",
+        overflow: "hidden",
+        ...shadows.dock,
       }}
     >
-      {state.routes.map((route, index) => {
-        const meta = TABS.find((tab) => tab.name === route.name);
-        if (!meta) return null;
-        const focused = state.index === index;
-        const icon = (focused ? meta.icon : `${meta.icon}-outline`) as keyof typeof Ionicons.glyphMap;
-        return (
-          <Pressable
-            key={route.key}
-            accessibilityRole="tab"
-            accessibilityLabel={meta.label}
-            accessibilityState={{ selected: focused }}
-            onPress={() => {
-              if (!focused) navigateToTab(route.key);
-            }}
-            style={{ minWidth: 68, minHeight: 52, alignItems: "center", justifyContent: "center" }}
-          >
-            <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: focused ? "#0a2a26" : "transparent" }}>
-              <Ionicons name={icon} size={18} color={focused ? "#ffffff" : colors.muted} />
-            </View>
-            <Text style={{ marginTop: 2, fontSize: 10, fontWeight: "700", color: focused ? colors.text : colors.muted, fontFamily: fontsReady ? "Manrope_600SemiBold" : undefined }}>{meta.label}</Text>
-          </Pressable>
-        );
-      })}
+      <BlurView intensity={48} tint={colors.dark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
+      <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ flex: 1, flexDirection: "row" }}>
+        {tabW > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                position: "absolute",
+                top: 6,
+                bottom: 6,
+                left: 5,
+                width: Math.max(tabW - 10, 0),
+                borderRadius: 24,
+                backgroundColor: pill,
+              },
+              pillStyle,
+            ]}
+          />
+        ) : null}
+        {state.routes.map((route, index) => {
+          const meta = TABS.find((tab) => tab.name === route.name);
+          if (!meta) return null;
+          const focused = state.index === index;
+          const icon = (focused ? meta.icon : `${meta.icon}-outline`) as keyof typeof Ionicons.glyphMap;
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="tab"
+              accessibilityLabel={meta.label}
+              accessibilityState={{ selected: focused }}
+              onPress={() => {
+                if (focused) return;
+                haptic();
+                navigateToTab(route.key);
+              }}
+              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center" }}
+            >
+              <Ionicons name={icon} size={18} color={focused ? onPill : colors.muted} />
+              <Text style={{ marginTop: 2, fontSize: 10, fontWeight: "700", color: focused ? onPill : colors.muted, fontFamily: fontsReady ? fonts.sansSemi : undefined }}>{meta.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
