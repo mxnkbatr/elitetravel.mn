@@ -191,24 +191,15 @@ jobs:
               version = item.get("attributes", {}).get("versionString") or ""
               if live is None or ver_key(version) > ver_key(live):
                   live = version
-          def bump_minor(version):
-              parts = [int(part) if part.isdigit() else 0 for part in str(version).split(".")]
-              while len(parts) < 2:
-                  parts.append(0)
-              return f"{parts[0]}.{parts[1] + 1}"
-          # 1.2 is already approved, so that train is closed. The next upload has to be a higher version.
-          marketing = bump_minor(live or "1.2")
-          build = "1"
-          if best is not None and ver_key(best[0]) >= ver_key(marketing):
-              marketing = best[0]
+          print(f"Highest store version seen: {live or 'none'}. Highest prerelease: {best[0] if best else 'none'}.")
+          # This release is exactly 1.5 (1). Do not move 1.4 or attach this binary to it.
+          marketing, build = "1.5", "1"
+          if best is not None and best[0] == "1.5":
               builds = api(f"/v1/preReleaseVersions/{best[1]}/builds?limit=50&fields[builds]=version")
-              numbers = []
               for item in builds.get("data", []):
-                  number = str(item.get("attributes", {}).get("version") or "")
-                  if number.isdigit():
-                      numbers.append(int(number))
-              build = str(max(numbers) + 1 if numbers else 1)
-          print(f"Uploading version {marketing} build {build}. Highest store version seen: {live or 'none'}.")
+                  if str(item.get("attributes", {}).get("version") or "") == "1":
+                      raise SystemExit("1.5 (1) already exists. Refusing to upload a duplicate.")
+          print("Uploading version 1.5 build 1. Version 1.4 is left unchanged.")
           open(os.environ["GITHUB_ENV"], "a").write(f"MARKETING_VERSION={marketing}\nBUILD_NUMBER={build}\n")
           PY
 
