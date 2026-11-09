@@ -434,18 +434,38 @@ jobs:
           cp "$RUNNER_TEMP/asc/AuthKey.p8" ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
           xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" | tee "$RUNNER_TEMP/upload/altool.txt"
           python3 - << 'PY'
-          import json, os, time, urllib.request
-          token = open(os.environ["RUNNER_TEMP"] + "/asc/token").read().strip()
+          import base64, json, os, subprocess, time, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
           app_id = open(os.environ["RUNNER_TEMP"] + "/asc/app-id").read().strip()
           marketing = os.environ["MARKETING_VERSION"]
           build = os.environ["BUILD_NUMBER"]
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          def token():
+              now = int(time.time())
+              header = b64(json.dumps({"alg": "ES256", "kid": os.environ["ASC_KEY_ID"], "typ": "JWT"}).encode())
+              payload = b64(json.dumps({"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 900, "aud": "appstoreconnect-v1"}).encode())
+              signed = f"{header}.{payload}".encode()
+              der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+              i = 2
+              if der[1] & 0x80:
+                  i = 2 + (der[1] & 0x7F)
+              assert der[i] == 2
+              i += 1
+              rlen = der[i]; i += 1
+              r = der[i:i + rlen]; i += rlen
+              assert der[i] == 2
+              i += 1
+              slen = der[i]; i += 1
+              s = der[i:i + slen]
+              return signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
           def api(path):
-              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token()})
               with urllib.request.urlopen(req, timeout=60) as res:
                   return json.load(res)
           state = "NOT_FOUND"
           build_id = ""
-          for _ in range(50):
+          for _ in range(60):
               versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=30")
               version_id = next((item["id"] for item in versions.get("data", []) if item.get("attributes", {}).get("version") == marketing), None)
               match = None
