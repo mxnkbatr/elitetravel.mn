@@ -1,0 +1,96 @@
+{
+  "expo": {
+    "name": "Elite Travel",
+    "slug": "elite-travel-native",
+    "scheme": "elitetravel",
+    "version": "1.6",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0b241d",
+    "splash": {
+      "image": "./assets/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b241d"
+    },
+    "ios": {
+      "bundleIdentifier": "mn.elitetravel.app",
+      "buildNumber": "2",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDisplayName": "Elite Travel",
+        "NSFaceIDUsageDescription": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна.",
+        "NSCameraUsageDescription": "Паспорт болон баримтын зураг авахад камер ашиглана.",
+        "NSPhotoLibraryUsageDescription": "Баримтын зураг сонгоход зургийн сан ашиглана.",
+        "NSLocationWhenInUseUsageDescription": "Elite Travel does not request or use your location. The linked map library references Core Location, so iOS requires this text. The app never asks for location permission.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "mn.elitetravel.app",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0b241d"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0b241d",
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 180
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Elite Travel руу нэвтрэхийг Face ID-аар баталгаажуулна."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Баримтын зураг сонгоход зургийн сан ашиглана.",
+          "cameraPermission": "Паспорт болон баримтын зураг авахад камер ашиглана."
+        }
+      ],
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": {
+            "locationEngine": "default"
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "web": {
+      "lang": "mn",
+      "themeColor": "#0b241d",
+      "backgroundColor": "#0b241d"
+    }
+  }
+}

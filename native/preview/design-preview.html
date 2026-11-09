@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8" />
+  <title>Elite Travel native design preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #e7f2ee;
+      --ink: #0a2a26;
+      --muted: #527169;
+      --accent: #0b7d73;
+      --gold: #e8b86d;
+      --card: #ffffff;
+      --line: rgba(10, 42, 38, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1f1e;
+      display: flex;
+      gap: 32px;
+      padding: 24px;
+      font-family: Manrope, "Segoe UI", sans-serif;
+    }
+    .screen {
+      width: 390px;
+      height: 844px;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      flex: none;
+    }
+    img { display: block; max-width: 100%; }
+    button, input { font-family: inherit; }
+
+    /* Home */
+    .hero {
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 486px;
+    }
+    .hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero .shade {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(5, 22, 20, 0.45) 0%, rgba(5, 22, 20, 0.08) 28%, rgba(5, 22, 20, 0.12) 46%, rgba(6, 24, 22, 0.82) 78%, #e7f2ee 100%);
+    }
+    .top {
+      position: absolute;
+      top: 58px;
+      left: 22px;
+      right: 22px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+    }
+    .brand .name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+    }
+    .brand small {
+      display: block;
+      margin-top: 2px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.34em;
+      opacity: 0.78;
+    }
+    .headline {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      top: 132px;
+      z-index: 2;
+      color: white;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #b7efe6;
+    }
+    .headline h1 {
+      margin-top: 10px;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 600;
+      font-size: 54px;
+      line-height: 0.88;
+      letter-spacing: -0.035em;
+    }
+    .headline h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+    .headline p {
+      margin-top: 14px;
+      max-width: 280px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.84);
+    }
+    .search {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 418px;
+      z-index: 3;
+      height: 54px;
+      border-radius: 27px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 8px 0 16px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.48);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      backdrop-filter: blur(18px) saturate(1.3);
+      color: white;
+    }
+    .search span { flex: 1; font-size: 14.5px; color: rgba(255,255,255,0.88); }
+    .search .go {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: white;
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+    }
+    .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 488px;
+      bottom: 0;
+      padding: 8px 0 108px;
+    }
+    .sheet-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 0 22px 12px;
+    }
+    .sheet-head h2 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+    .sheet-head a {
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      overflow: hidden;
+      padding: 0 22px;
+    }
+    .card {
+      width: 214px;
+      flex: none;
+      background: var(--card);
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(6, 42, 42, 0.08);
+    }
+    .card .photo {
+      position: relative;
+      height: 104px;
+    }
+    .card .photo img { width: 100%; height: 100%; object-fit: cover; }
+    .chip {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.94);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .sale {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--accent);
+      color: white;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .card .body { padding: 12px 12px 14px; }
+    .card h3 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 21px;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      font-weight: 600;
+    }
+    .card .meta { margin-top: 4px; color: var(--muted); font-size: 11.5px; }
+    .price {
+      margin-top: 8px;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .price s {
+      display: block;
+      margin-bottom: 3px;
+      color: #7d948d;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0;
+    }
+
+    .tabbar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 16px;
+      height: 66px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: rgba(247, 251, 249, 0.72);
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 12px 40px rgba(6, 30, 28, 0.14);
+      backdrop-filter: blur(22px) saturate(1.5);
+      z-index: 5;
+    }
+    .tab {
+      width: 72px;
+      text-align: center;
+      color: #6d857e;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .tab svg { display: block; margin: 0 auto 3px; }
+    .tab.on { color: var(--accent); }
+
+    /* Detail */
+    .dhero { height: 392px; position: relative; }
+    .dhero img { width: 100%; height: 100%; object-fit: cover; }
+    .dhero .shade {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(5,20,18,0.35) 0%, rgba(5,20,18,0) 30%, rgba(5,20,18,0.15) 70%, rgba(231,242,238,1) 100%);
+    }
+    .iconbtn {
+      position: absolute;
+      top: 58px;
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(16px);
+      color: white;
+      display: grid;
+      place-items: center;
+      z-index: 2;
+    }
+    .iconbtn.back { left: 16px; }
+    .iconbtn.save { right: 16px; }
+    .dbody {
+      position: absolute;
+      left: 0; right: 0; top: 332px; bottom: 0;
+      padding: 0 20px 108px;
+    }
+    .dbody h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 40px;
+      line-height: 0.95;
+      letter-spacing: -0.035em;
+      font-weight: 600;
+    }
+    .facts {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .facts span {
+      background: white;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #355952;
+      box-shadow: 0 4px 14px rgba(6,42,42,0.04);
+    }
+    .price-row {
+      margin-top: 14px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .price-row .lbl { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+    .price-row strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+      color: var(--accent);
+    }
+    .stay { text-align: right; font-size: 12px; color: var(--muted); max-width: 150px; line-height: 1.35; }
+    .film {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    .film img {
+      width: 108px;
+      height: 78px;
+      object-fit: cover;
+      border-radius: 16px;
+    }
+    .hl {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hl div {
+      background: white;
+      border-radius: 18px;
+      padding: 10px 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 12.5px;
+      font-weight: 650;
+      line-height: 1.25;
+      box-shadow: 0 8px 20px rgba(6,42,42,0.04);
+    }
+    .num {
+      width: 28px;
+      height: 28px;
+      flex: none;
+      border-radius: 9px;
+      background: rgba(11,125,115,0.1);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .book {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 16px;
+      height: 72px;
+      border-radius: 28px;
+      background: rgba(247, 251, 249, 0.78);
+      border: 1px solid rgba(255,255,255,0.75);
+      box-shadow: 0 12px 40px rgba(6, 30, 28, 0.16);
+      backdrop-filter: blur(22px) saturate(1.4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px 0 18px;
+      z-index: 5;
+    }
+    .book .lbl { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .book strong { display: block; font-size: 20px; letter-spacing: -0.03em; color: var(--ink); }
+    .book button {
+      height: 52px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 22px;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <!-- Design preview only. Copy, prices and photos are from the public Elite Travel tour pages. Not an iPhone screenshot. -->
+  <section id="home" class="screen">
+    <div class="hero">
+      <img alt="Хайнангийн далайн эрэг" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_1200,h_1600/elitetravel/tours/tropical-aerial-coast" />
+      <div class="shade"></div>
+    </div>
+    <div class="top">
+      <div class="brand">
+        <div>
+          <div class="name">ELITE</div>
+          <small>TRAVEL</small>
+        </div>
+      </div>
+    </div>
+    <div class="headline">
+      <div class="eyebrow">Elite Travel Mongolia</div>
+      <h1>Халуун орны<br><em>мөрөөдлөө</em><br>бодит болго.</h1>
+      <p>Хайнань, Хонг Конг, Бали болон концерт аяллууд.</p>
+    </div>
+    <div class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4" stroke-linecap="round"/></svg>
+      <span>Аялал, чиглэл хайх</span>
+      <div class="go">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Эрэлттэй аяллууд</h2>
+        <a href="#detail">Бүгд</a>
+      </div>
+      <div class="row">
+        <article class="card">
+          <div class="photo">
+            <img alt="Бали" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_800,h_640/elitetravel/tours/bali-island" />
+            <span class="chip">Бали</span>
+            <span class="sale">-8%</span>
+          </div>
+          <div class="body">
+            <h3>Бали, Индонез</h3>
+            <div class="meta">9 өдөр · 8 шөнө · Хүссэн үедээ</div>
+            <div class="price"><s>₮6'290'000</s>₮5'790'000</div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="photo">
+            <img alt="Dately Show" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_800,h_640/elitetravel/tours/dately-show-hainan" />
+            <span class="chip">Хайнань</span>
+          </div>
+          <div class="body">
+            <h3>Dately Show: Hainan Escape</h3>
+            <div class="meta">8 өдөр · 7 шөнө</div>
+            <div class="price">₮2'990'000</div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="photo">
+            <img alt="Хайнань" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_800,h_640/elitetravel/tours/hainan-main-sep15" />
+            <span class="chip">Хайнань</span>
+          </div>
+          <div class="body">
+            <h3>Хайнань 11/10</h3>
+            <div class="meta">8 өдөр · 7 шөнө · 11/10 – 11/17</div>
+            <div class="price">₮2'990'000</div>
+          </div>
+        </article>
+      </div>
+    </div>
+    <nav class="tabbar">
+      <div class="tab on">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" stroke-linejoin="round"/></svg>
+        Нүүр
+      </div>
+      <div class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2" stroke-linecap="round"/></svg>
+        Аялал
+      </div>
+      <div class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+        Захиалга
+      </div>
+      <div class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 19.2c1.4-3 3.8-4.2 7-4.2s5.6 1.2 7 4.2" stroke-linecap="round"/></svg>
+        Бүртгэл
+      </div>
+    </nav>
+  </section>
+
+  <section id="detail" class="screen">
+    <div class="dhero">
+      <img alt="Байшилин шилэн гүүр" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_1200,h_1400/elitetravel/tours/day2-baishilin-glass-bridge" />
+      <div class="shade"></div>
+    </div>
+    <div class="iconbtn back" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 5 8 12l7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="iconbtn save" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"/></svg>
+    </div>
+    <div class="dbody">
+      <div class="eyebrow" style="color:#0b7d73">Хайнань</div>
+      <h1>Хайнань үндсэн аялал 11/10</h1>
+      <div class="facts">
+        <span>8 өдөр · 7 шөнө</span>
+        <span>11/10 – 11/17</span>
+        <span>Улаанбаатар</span>
+      </div>
+      <div class="price-row">
+        <div>
+          <div class="lbl">ҮНЭ / ХҮН</div>
+          <strong>₮2'990'000</strong>
+        </div>
+        <div class="stay">Timton Fuhe Hotel, Саняа</div>
+      </div>
+      <div class="film">
+        <img alt="" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_400,h_300/elitetravel/tours/tropical-aerial-coast" />
+        <img alt="" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_400,h_300/elitetravel/tours/day5-atlantis-slide" />
+        <img alt="" src="https://res.cloudinary.com/ev6fygsf/image/upload/f_auto,q_80,c_fill,g_auto,w_400,h_300/elitetravel/tours/day7-resort-pool" />
+      </div>
+      <div class="hl">
+        <div><span class="num">01</span>Байшилин шилэн гүүр</div>
+        <div><span class="num">02</span>Задгай далайн аялал</div>
+        <div><span class="num">03</span>Атлантис усан парк</div>
+        <div><span class="num">04</span>Сармагчингийн арал</div>
+      </div>
+    </div>
+    <div class="book">
+      <div>
+        <div class="lbl">Үнэ / хүн</div>
+        <strong>₮2'990'000</strong>
+      </div>
+      <button type="button">Захиалах</button>
+    </div>
+  </section>
+</body>
+</html>

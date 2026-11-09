@@ -1,0 +1,179 @@
+# Unsigned iOS simulator build for native/ only.
+# Does not sign, upload, or touch the website, the backend, or the Capacitor app in mobile/.
+# The existing iOS App Store workflow and its signing secrets are not used here.
+
+name: Native iOS simulator
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: native-ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Tool versions
+        run: |
+          xcodebuild -version
+          pod --version
+          node --version
+
+      - name: Install, typecheck, and test
+        working-directory: native
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Prebuild the iOS project
+        working-directory: native
+        env:
+          CI: "1"
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Record the generated iOS target
+        working-directory: native
+        run: |
+          echo "Bundle id and deployment target from the generated project:"
+          grep -n "PRODUCT_BUNDLE_IDENTIFIER\|IPHONEOS_DEPLOYMENT_TARGET" ios/EliteTravel.xcodeproj/project.pbxproj | sort -u
+          grep -n "MLRN.post_install\|platform :ios" ios/Podfile
+
+      - name: Install CocoaPods
+        working-directory: native/ios
+        run: pod install
+
+      - name: Compile for the iOS simulator
+        working-directory: native/ios
+        run: |
+          set -o pipefail
+          # Debug sets SKIP_BUNDLING, so the simulator would launch with no JS.
+          # Release runs Expo's export:embed and does not need Metro.
+          # MapLibre is a Swift package downloaded during this build. A 504 from
+          # the GitHub release is retried once. A compile error is not.
+          compile() {
+            xcodebuild \
+              -workspace EliteTravel.xcworkspace \
+              -scheme EliteTravel \
+              -configuration Release \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath "$RUNNER_TEMP/elite-dd" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              build
+          }
+          set +e
+          compile | tee "$RUNNER_TEMP/xcodebuild.log" | tail -n 120
+          status=${PIPESTATUS[0]}
+          if [[ "$status" -ne 0 ]] && grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild.log"; then
+            echo "MapLibre package download failed. Retrying the compile once."
+            sleep 20
+            compile | tee "$RUNNER_TEMP/xcodebuild-retry.log" | tail -n 120
+            status=${PIPESTATUS[0]}
+          fi
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            exit "$status"
+          fi
+          APP="$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app"
+          if [[ ! -f "$APP/main.jsbundle" ]]; then
+            echo "main.jsbundle missing after a successful build. App files:"
+            find "$APP" -maxdepth 3 -type f | head -80
+            exit 1
+          fi
+          echo "Embedded bundle: $APP/main.jsbundle"
+
+      - name: Launch on a simulator
+        working-directory: native
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/ios-smoke"
+          python3 - << 'PY'
+          import json, subprocess
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          chosen = None
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for device in devices:
+                  if device.get("isAvailable") and "iPhone" in device.get("name", ""):
+                      chosen = (device["udid"], device["name"], runtime)
+                      break
+              if chosen:
+                  break
+          if not chosen:
+              raise SystemExit("No available iPhone simulator")
+          open("/tmp/ios-sim.txt", "w").write("\n".join(chosen))
+          print("simulator", chosen)
+          PY
+          UDID=$(sed -n '1p' /tmp/ios-sim.txt)
+          NAME=$(sed -n '2p' /tmp/ios-sim.txt)
+          echo "Booting $NAME ($UDID)"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find "$RUNNER_TEMP/elite-dd/Build/Products" -path '*iphonesimulator*' -name 'EliteTravel.app' -type d | head -1)
+          test -n "$APP"
+          echo "Installing $APP"
+          xcrun simctl install "$UDID" "$APP"
+          echo "Launching mn.elitetravel.app"
+          if ! xcrun simctl launch "$UDID" mn.elitetravel.app > "$RUNNER_TEMP/ios-smoke/launch.txt" 2>&1; then
+            cat "$RUNNER_TEMP/ios-smoke/launch.txt"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/ios-smoke/launch.txt"
+          sleep 15
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/ios-smoke/simulator.png" || echo "screenshot failed"
+          # A crash report written during this launch means the process did not stay up.
+          python3 - << 'PY'
+          import os, time
+          roots = [
+              os.path.expanduser("~/Library/Logs/DiagnosticReports"),
+              os.path.expanduser("~/Library/Logs/CrashReporter"),
+          ]
+          now = time.time()
+          hits = []
+          for root in roots:
+              if not os.path.isdir(root):
+                  continue
+              for name in os.listdir(root):
+                  if "Elite" not in name and "elitetravel" not in name.lower():
+                      continue
+                  path = os.path.join(root, name)
+                  if now - os.path.getmtime(path) < 180:
+                      hits.append(path)
+          open(os.environ["RUNNER_TEMP"] + "/ios-smoke/crashes.txt", "w").write("\n".join(hits))
+          if hits:
+              raise SystemExit("Crash report: " + ", ".join(hits))
+          print("No new Elite crash report")
+          PY
+          xcrun simctl terminate "$UDID" mn.elitetravel.app || true
+
+      - name: Upload simulator smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ios-simulator-smoke
+          path: |
+            ${{ runner.temp }}/ios-smoke
+          if-no-files-found: warn
+          retention-days: 7

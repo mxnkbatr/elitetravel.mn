@@ -1,0 +1,505 @@
+# Signed TestFlight upload for native/ only. Does not build mobile/, deploy the website,
+# merge, or submit for App Review. Secrets are the existing distribution names.
+
+name: Native iOS TestFlight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/native-ios-testflight.yml"
+
+concurrency:
+  group: native-ios-testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    # Read-only. Does not upload or submit.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read existing TestFlight build state
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_P8}" ] || [ -z "${ASC_KEY_ID}" ] || [ -z "${ASC_ISSUER_ID}" ]; then
+            echo "Missing App Store Connect secret."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+          python3 - << 'PY'
+          import base64, json, os, subprocess, time, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
+          now = int(time.time())
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          header = b64(json.dumps({"alg": "ES256", "kid": os.environ["ASC_KEY_ID"], "typ": "JWT"}).encode())
+          payload = b64(json.dumps({"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"}).encode())
+          signed = f"{header}.{payload}".encode()
+          der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+          i = 2
+          if der[1] & 0x80:
+              i = 2 + (der[1] & 0x7F)
+          assert der[i] == 2
+          i += 1
+          rlen = der[i]; i += 1
+          r = der[i:i + rlen]; i += rlen
+          assert der[i] == 2
+          i += 1
+          slen = der[i]; i += 1
+          s = der[i:i + slen]
+          token = signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              with urllib.request.urlopen(req, timeout=60) as res:
+                  return json.load(res)
+          apps = api("/v1/apps?filter[bundleId]=mn.elitetravel.app&limit=1")
+          app_id = apps["data"][0]["id"]
+          versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=20")
+          wanted = {"1.4", "1.5", "1.6"}
+          for item in versions.get("data", []):
+              version = item.get("attributes", {}).get("version")
+              if version not in wanted:
+                  continue
+              builds = api(f"/v1/preReleaseVersions/{item['id']}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
+              rows = builds.get("data", [])
+              if not rows:
+                  print(f"version={version} has no builds")
+                  continue
+              for build in rows:
+                  attrs = build["attributes"]
+                  print(f"version={version} build={attrs.get('version')} id={build['id']} processingState={attrs.get('processingState')} uploaded={attrs.get('uploadedDate')}")
+          PY
+          rm -rf "$RUNNER_TEMP/asc"
+
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      upload: ${{ steps.check.outputs.upload }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f native/UPLOAD_TESTFLIGHT ]; then
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  upload:
+    needs: gate
+    if: needs.gate.outputs.upload == 'true'
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      TEAM_ID: 78XCG6RMZS
+      BUNDLE_ID: mn.elitetravel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Tool versions
+        run: xcodebuild -version
+
+      - name: Install and prebuild
+        working-directory: native
+        env:
+          CI: "1"
+        run: |
+          set -euo pipefail
+          npm ci
+          # App Store requires a 1024 icon. The committed file is 512 RGB without alpha.
+          sips -z 1024 1024 assets/icon.png >/dev/null
+          sips -g pixelWidth -g pixelHeight -g hasAlpha assets/icon.png
+          npx expo prebuild --platform ios --no-install
+          test -f ios/EliteTravel/SplashScreen.storyboard
+          /usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSFaceIDUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' ios/EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' ios/EliteTravel/Info.plist
+
+      - name: Install CocoaPods
+        working-directory: native/ios
+        run: pod install
+
+      - name: Install signing certificate and profile
+        env:
+          P12_B64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          P12_PW: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${P12_B64}" ] || [ -z "${P12_PW}" ] || [ -z "${PROFILE_B64}" ]; then
+            echo "Missing signing secret. This job needs IOS_CERT_P12_BASE64, IOS_CERT_PASSWORD, and IOS_PROFILE_BASE64."
+            exit 1
+          fi
+          KC=$RUNNER_TEMP/build.keychain-db
+          KC_PW=$(uuidgen)
+          echo "::add-mask::$KC_PW"
+          echo "$P12_B64" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          security import $RUNNER_TEMP/cert.p12 -P "$P12_PW" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f $RUNNER_TEMP/cert.p12
+          security find-identity -v -p codesigning "$KC"
+          echo "$PROFILE_B64" | base64 --decode > $RUNNER_TEMP/p.mobileprovision
+          DECODED=$(security cms -D -i $RUNNER_TEMP/p.mobileprovision)
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$DECODED")
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            cp $RUNNER_TEMP/p.mobileprovision "$d/$UUID.mobileprovision"
+          done
+          APPID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" /dev/stdin <<< "$DECODED")
+          case "$APPID" in
+            *."$BUNDLE_ID") echo "Provisioning profile matches $BUNDLE_ID" ;;
+            *) echo "Provisioning profile does not match $BUNDLE_ID"; exit 1 ;;
+          esac
+          APS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" /dev/stdin <<< "$DECODED" 2>/dev/null || true)
+          if [ "$APS" != "production" ]; then
+            echo "Profile aps-environment=${APS:-missing}. Push stays on the existing App ID; this upload needs production."
+            exit 1
+          fi
+          echo "Profile aps-environment=$APS"
+          echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+          rm -f $RUNNER_TEMP/p.mobileprovision
+
+      - name: Choose the next App Store version
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_P8}" ] || [ -z "${ASC_KEY_ID}" ] || [ -z "${ASC_ISSUER_ID}" ]; then
+            echo "Missing App Store Connect secret. This job needs ASC_KEY_P8_BASE64, ASC_KEY_ID, and ASC_ISSUER_ID."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+          python3 - << 'PY'
+          import base64, json, os, subprocess, time, urllib.error, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
+          key_id = os.environ["ASC_KEY_ID"]
+          issuer = os.environ["ASC_ISSUER_ID"]
+          now = int(time.time())
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          header = b64(json.dumps({"alg": "ES256", "kid": key_id, "typ": "JWT"}).encode())
+          payload = b64(json.dumps({"iss": issuer, "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"}).encode())
+          signed = f"{header}.{payload}".encode()
+          der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+          i = 2
+          if der[1] & 0x80:
+              i = 2 + (der[1] & 0x7F)
+          assert der[i] == 2
+          i += 1
+          rlen = der[i]; i += 1
+          r = der[i:i + rlen]; i += rlen
+          assert der[i] == 2
+          i += 1
+          slen = der[i]; i += 1
+          s = der[i:i + slen]
+          token = signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
+          open(os.environ["RUNNER_TEMP"] + "/asc/token", "w").write(token)
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as res:
+                      return json.load(res)
+              except urllib.error.HTTPError as err:
+                  body = err.read().decode("utf-8", "replace")[:500]
+                  raise SystemExit(f"App Store Connect API {err.code}: {body}")
+          apps = api("/v1/apps?filter[bundleId]=mn.elitetravel.app&limit=1")
+          if not apps.get("data"):
+              raise SystemExit("No existing App Store Connect app for mn.elitetravel.app. Refusing to create one.")
+          app_id = apps["data"][0]["id"]
+          open(os.environ["RUNNER_TEMP"] + "/asc/app-id", "w").write(app_id)
+          versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=50")
+          def ver_key(value):
+              parts = []
+              for part in str(value).split("."):
+                  if part.isdigit():
+                      parts.append(int(part))
+                  else:
+                      break
+              return tuple(parts) or (0,)
+          best = None
+          for item in versions.get("data", []):
+              version = item.get("attributes", {}).get("version") or ""
+              if best is None or ver_key(version) > ver_key(best[0]):
+                  best = (version, item["id"])
+          store = api(f"/v1/apps/{app_id}/appStoreVersions?limit=20")
+          live = None
+          for item in store.get("data", []):
+              version = item.get("attributes", {}).get("versionString") or ""
+              if live is None or ver_key(version) > ver_key(live):
+                  live = version
+          print(f"Highest store version seen: {live or 'none'}. Highest prerelease: {best[0] if best else 'none'}.")
+          # 1.6 (1) is the build already in flight. This upload is exactly 1.6 (2).
+          marketing, build = "1.6", "2"
+          version_id = next((item["id"] for item in versions.get("data", []) if item.get("attributes", {}).get("version") == "1.6"), None)
+          if version_id is None:
+              raise SystemExit("1.6 (1) is not registered yet. Refusing to upload 1.6 (2).")
+          builds = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=50&fields[builds]=version")
+          found_one = False
+          for item in builds.get("data", []):
+              number = str(item.get("attributes", {}).get("version") or "")
+              if number == "2":
+                  raise SystemExit("1.6 (2) already exists. Refusing to upload a duplicate.")
+              if number == "1":
+                  found_one = True
+          if not found_one:
+              raise SystemExit("1.6 (1) is not registered yet. Refusing to upload 1.6 (2).")
+          print("Uploading version 1.6 build 2. Versions 1.4 and 1.6 (1) are left unchanged.")
+          open(os.environ["GITHUB_ENV"], "a").write(f"MARKETING_VERSION={marketing}\nBUILD_NUMBER={build}\n")
+          PY
+
+      - name: Archive
+        working-directory: native/ios
+        run: |
+          set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" EliteTravel/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" EliteTravel/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" EliteTravel/Info.plist || true
+          python3 - << 'PY'
+          import os, re
+          path = "EliteTravel.xcodeproj/project.pbxproj"
+          text = open(path).read()
+          team = os.environ["TEAM_ID"]
+          profile = os.environ["PROFILE_UUID"]
+          pattern = re.compile(r'PRODUCT_BUNDLE_IDENTIFIER = "?mn\.elitetravel\.app"?;')
+          matches = list(pattern.finditer(text))
+          if not matches:
+              lines = [line.strip() for line in text.splitlines() if "PRODUCT_BUNDLE_IDENTIFIER" in line]
+              raise SystemExit("App target bundle id was not found. Lines: " + " | ".join(lines[:8]))
+          insert_tail = '\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = ' + team + ';\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "' + profile + '";'
+          text = pattern.sub(lambda m: m.group(0) + insert_tail, text)
+          text = text.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
+          # The approved 1.2 app supports iPad. An update cannot drop that device family.
+          text = text.replace('TARGETED_DEVICE_FAMILY = "1";', 'TARGETED_DEVICE_FAMILY = "1,2";')
+          text = text.replace('TARGETED_DEVICE_FAMILY = 1;', 'TARGETED_DEVICE_FAMILY = "1,2";')
+          open(path, "w").write(text)
+          print(f"Manual distribution signing set on {len(matches)} app target configurations")
+          PY
+          # GitHub release assets often return 504. Download the MapLibre binary
+          # ourselves, then point the Swift package at that local framework.
+          ZIP="$RUNNER_TEMP/MapLibre.dynamic.xcframework.zip"
+          curl -fL --retry 40 --retry-all-errors --retry-delay 5 -o "$ZIP" \
+            "https://github.com/maplibre/maplibre-native/releases/download/ios-v6.31.0/MapLibre.dynamic.xcframework.zip"
+          rm -rf MapLibreLocal
+          mkdir -p MapLibreLocal
+          unzip -q "$ZIP" -d MapLibreLocal
+          cat > MapLibreLocal/Package.swift << 'SWIFT'
+          // swift-tools-version:5.3
+          import PackageDescription
+          let package = Package(
+            name: "MapLibre Native",
+            products: [.library(name: "MapLibre", targets: ["MapLibre"])],
+            targets: [.binaryTarget(name: "MapLibre", path: "MapLibre.xcframework")]
+          )
+          SWIFT
+          python3 - << 'PY'
+          import re
+          from pathlib import Path
+          pattern = re.compile(
+              r'isa = XCRemoteSwiftPackageReference;\s*'
+              r'repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";\s*'
+              r'requirement = \{\s*kind = exactVersion;\s*version = 6\.31\.0;\s*\};',
+              re.S,
+          )
+          found = 0
+          for path in Path(".").rglob("project.pbxproj"):
+              text = path.read_text()
+              if "maplibre-gl-native-distribution" not in text:
+                  continue
+              relative = "../MapLibreLocal" if "Pods.xcodeproj" in str(path) else "MapLibreLocal"
+              replacement = 'isa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = ' + relative + ';'
+              updated, count = pattern.subn(replacement, text)
+              if count == 0:
+                  start = text.find("maplibre-gl-native-distribution")
+                  raise SystemExit("Could not rewrite MapLibre package reference in " + str(path) + ":\n" + text[max(0, start - 300):start + 400])
+              path.write_text(updated)
+              found += count
+              print(f"Pointed {count} MapLibre package reference(s) in {path} at {relative}")
+          if found == 0:
+              raise SystemExit("MapLibre Swift package reference was not in the Xcode projects")
+          PY
+          compile() {
+            xcodebuild archive \
+              -workspace EliteTravel.xcworkspace \
+              -scheme EliteTravel \
+              -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
+              DEVELOPMENT_TEAM="$TEAM_ID" \
+              TARGETED_DEVICE_FAMILY="1,2" \
+              MARKETING_VERSION="$MARKETING_VERSION" \
+              CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+          }
+          set +e
+          status=1
+          for attempt in 1 2 3 4 5; do
+            compile 2>&1 | tee "$RUNNER_TEMP/xcodebuild-$attempt.log" | tail -n 40
+            status=${PIPESTATUS[0]}
+            if [[ "$status" -eq 0 ]]; then
+              break
+            fi
+            if grep -q "Could not resolve package dependencies" "$RUNNER_TEMP/xcodebuild-$attempt.log"; then
+              echo "MapLibre package download failed (attempt $attempt). Waiting and retrying."
+              sleep 20
+              continue
+            fi
+            break
+          done
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            exit "$status"
+          fi
+          APP="$RUNNER_TEMP/EliteTravel.xcarchive/Products/Applications/EliteTravel.app"
+          test -f "$APP/main.jsbundle"
+          if ! find "$APP" -name 'SplashScreen*' | grep -q .; then
+            echo "Splash screen was not in the archived app."
+            find "$APP" -iname '*splash*' -o -iname '*launch*' | head
+            exit 1
+          fi
+          echo "Archive contains the JS bundle and splash screen for $MARKETING_VERSION ($BUILD_NUMBER)."
+          ENTITLEMENTS=$(codesign -d --entitlements :- "$APP" 2>/dev/null || true)
+          echo "$ENTITLEMENTS" | grep -q '<key>aps-environment</key>'
+          echo "$ENTITLEMENTS" | grep -A1 '<key>aps-environment</key>' | grep -q '<string>production</string>'
+          echo "Archived app aps-environment=production"
+          /usr/libexec/PlistBuddy -c 'Print :UIBackgroundModes' "$APP/Info.plist" | grep -q remote-notification
+          echo "Archived app includes remote-notification background mode."
+          echo "Privacy purpose strings in the archived Info.plist:"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSFaceIDUsageDescription' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$APP/Info.plist"
+          if /usr/libexec/PlistBuddy -c 'Print :NSLocationAlwaysUsageDescription' "$APP/Info.plist" >/dev/null 2>&1; then
+            echo "Unexpected always-location purpose string is present."
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy -c 'Print :NSLocationAlwaysAndWhenInUseUsageDescription' "$APP/Info.plist" >/dev/null 2>&1; then
+            echo "Unexpected always-location purpose string is present."
+            exit 1
+          fi
+
+      - name: Export and upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingCertificate</key><string>iPhone Distribution</string>
+            <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$PROFILE_UUID</string></dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/EliteTravel.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/out"
+          IPA=$(ls "$RUNNER_TEMP/out/"*.ipa | head -1)
+          test -n "$IPA"
+          mkdir -p ~/.appstoreconnect/private_keys "$RUNNER_TEMP/upload"
+          cp "$RUNNER_TEMP/asc/AuthKey.p8" ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" | tee "$RUNNER_TEMP/upload/altool.txt"
+          python3 - << 'PY'
+          import base64, json, os, subprocess, time, urllib.request
+          key_path = os.environ["RUNNER_TEMP"] + "/asc/AuthKey.p8"
+          app_id = open(os.environ["RUNNER_TEMP"] + "/asc/app-id").read().strip()
+          marketing = os.environ["MARKETING_VERSION"]
+          build = os.environ["BUILD_NUMBER"]
+          def b64(raw):
+              return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+          def token():
+              now = int(time.time())
+              header = b64(json.dumps({"alg": "ES256", "kid": os.environ["ASC_KEY_ID"], "typ": "JWT"}).encode())
+              payload = b64(json.dumps({"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 900, "aud": "appstoreconnect-v1"}).encode())
+              signed = f"{header}.{payload}".encode()
+              der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", key_path], input=signed)
+              i = 2
+              if der[1] & 0x80:
+                  i = 2 + (der[1] & 0x7F)
+              assert der[i] == 2
+              i += 1
+              rlen = der[i]; i += 1
+              r = der[i:i + rlen]; i += rlen
+              assert der[i] == 2
+              i += 1
+              slen = der[i]; i += 1
+              s = der[i:i + slen]
+              return signed.decode() + "." + b64(r[-32:].rjust(32, b"\x00") + s[-32:].rjust(32, b"\x00"))
+          def api(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": "Bearer " + token()})
+              with urllib.request.urlopen(req, timeout=60) as res:
+                  return json.load(res)
+          state = "NOT_FOUND"
+          build_id = ""
+          for _ in range(60):
+              versions = api(f"/v1/apps/{app_id}/preReleaseVersions?limit=30")
+              version_id = next((item["id"] for item in versions.get("data", []) if item.get("attributes", {}).get("version") == marketing), None)
+              match = None
+              if version_id:
+                  data = api(f"/v1/preReleaseVersions/{version_id}/builds?limit=20&fields[builds]=version,processingState,uploadedDate")
+                  for item in data.get("data", []):
+                      if str(item.get("attributes", {}).get("version")) == build:
+                          match = item
+                          break
+              if match:
+                  state = match["attributes"].get("processingState") or "UNKNOWN"
+                  build_id = match.get("id") or ""
+                  print(f"Build {marketing} ({build}) id={build_id} processingState={state}")
+                  if state in ("VALID", "FAILED", "INVALID"):
+                      break
+              else:
+                  print(f"Build {marketing} ({build}) is not listed on preReleaseVersion {marketing} yet.")
+              time.sleep(40)
+          open(os.environ["RUNNER_TEMP"] + "/upload/processing.txt", "w").write(f"{marketing} {build} {build_id} {state}\n")
+          if state != "VALID":
+              raise SystemExit(f"Build {marketing} ({build}) id={build_id} processingState={state}")
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-testflight-evidence
+          path: ${{ runner.temp }}/upload
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+          rm -rf ~/.appstoreconnect/private_keys "$RUNNER_TEMP/asc" "$HOME/Library/MobileDevice/Provisioning Profiles" || true

@@ -1,0 +1,157 @@
+# Unsigned simulator screenshots of the native app for App Store Connect.
+# Uses the public catalogue. Does not sign in, book, pay, or upload a build.
+
+name: Native iOS screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Build the unsigned Release app
+        working-directory: native
+        env:
+          CI: "1"
+        run: |
+          set -euo pipefail
+          npm ci
+          npx expo prebuild --platform ios --no-install
+          cd ios && pod install
+          xcodebuild \
+            -workspace EliteTravel.xcworkspace \
+            -scheme EliteTravel \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/elite-dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build | tail -n 40
+          test -f "$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app/main.jsbundle"
+
+      - name: Capture iPhone and iPad screens
+        working-directory: native
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/elite-dd/Build/Products/Release-iphonesimulator/EliteTravel.app"
+          OUT="$RUNNER_TEMP/screenshots"
+          mkdir -p "$OUT"
+          python3 - << 'PY'
+          import json, os, subprocess
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          devices = []
+          for runtime, rows in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for row in rows:
+                  if row.get("isAvailable"):
+                      devices.append((row["name"], row["udid"], runtime))
+          def pick(names):
+              for wanted in names:
+                  for name, udid, runtime in devices:
+                      if name == wanted:
+                          return name, udid, runtime
+              return None
+          iphone = pick(["iPhone 17 Pro Max", "iPhone 16 Pro Max", "iPhone 15 Pro Max", "iPhone 14 Pro Max"])
+          ipad = pick(["iPad Pro 13-inch (M5)", "iPad Pro 13-inch (M4)", "iPad Pro (13-inch) (M4)", "iPad Pro 12.9-inch (6th generation)"])
+          if not iphone or not ipad:
+              print("\n".join(sorted({name for name, _, _ in devices})))
+              raise SystemExit("Could not find an App Store sized iPhone and iPad simulator")
+          open("/tmp/shot-devices.txt", "w").write(iphone[0] + "\t" + iphone[1] + "\n" + ipad[0] + "\t" + ipad[1] + "\n")
+          print("iPhone", iphone[0], iphone[2])
+          print("iPad", ipad[0], ipad[2])
+          PY
+          TOUR=$(python3 - << 'PY'
+          import re, urllib.request
+          html = urllib.request.urlopen("https://elitetravel-mn-wg6y.vercel.app/tours", timeout=60).read().decode("utf-8", "replace")
+          ids = re.findall(r"/tours/([a-z0-9-]{3,})", html)
+          for wanted in ("hainan-4", "bali", "dately-show-hainan"):
+              if wanted in ids:
+                  print(wanted)
+                  break
+          else:
+              raise SystemExit("No public tour id found")
+          PY
+          )
+          echo "Public tour $TOUR"
+          capture() {
+            local label=$1
+            local udid=$2
+            xcrun simctl shutdown "$udid" || true
+            xcrun simctl erase "$udid"
+            xcrun simctl boot "$udid"
+            xcrun simctl bootstatus "$udid" -b
+            xcrun simctl ui "$udid" appearance light
+            xcrun simctl status_bar "$udid" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiMode active --wifiBars 3 || true
+            xcrun simctl install "$udid" "$APP"
+            xcrun simctl launch "$udid" mn.elitetravel.app
+            sleep 12
+            xcrun simctl io "$udid" screenshot "$OUT/${label}-01-home.png"
+            # Opening a URL while the app is already running shows an "Open in Elite Travel?" dialog.
+            # Terminating first lets the URL cold-start the screen directly.
+            open_route() {
+              local route=$1
+              local file=$2
+              local pause=$3
+              xcrun simctl terminate "$udid" mn.elitetravel.app || true
+              sleep 1
+              xcrun simctl openurl "$udid" "elitetravel://$route"
+              sleep 2
+              osascript -e 'tell application "Simulator" to activate' -e 'delay 0.4' -e 'tell application "System Events" to keystroke return' || true
+              sleep "$pause"
+              xcrun simctl io "$udid" screenshot "$OUT/$file"
+            }
+            open_route "tour/$TOUR" "${label}-02-tour.png" 10
+            open_route "map" "${label}-03-map.png" 12
+            open_route "trips" "${label}-04-bookings.png" 8
+            open_route "account" "${label}-05-profile.png" 8
+            xcrun simctl terminate "$udid" mn.elitetravel.app || true
+            xcrun simctl shutdown "$udid" || true
+          }
+          IPHONE_NAME=$(cut -f1 /tmp/shot-devices.txt | sed -n 1p)
+          IPHONE_UDID=$(cut -f2 /tmp/shot-devices.txt | sed -n 1p)
+          IPAD_NAME=$(cut -f1 /tmp/shot-devices.txt | sed -n 2p)
+          IPAD_UDID=$(cut -f2 /tmp/shot-devices.txt | sed -n 2p)
+          echo "Capturing $IPHONE_NAME"
+          capture iphone "$IPHONE_UDID"
+          echo "Capturing $IPAD_NAME"
+          capture ipad "$IPAD_UDID"
+          python3 - << 'PY'
+          import os, pathlib, subprocess
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "screenshots"
+          lines = ["device\tfile\twidth\theight"]
+          for path in sorted(out.glob("*.png")):
+              info = subprocess.check_output(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(path)], text=True)
+              width = height = "?"
+              for line in info.splitlines():
+                  if "pixelWidth" in line:
+                      width = line.split()[-1]
+                  if "pixelHeight" in line:
+                      height = line.split()[-1]
+              lines.append(f"{path.name}\t{width}\t{height}")
+              print(lines[-1])
+          (out / "dimensions.tsv").write_text("\n".join(lines) + "\n")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-appstore-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: error
+          retention-days: 14

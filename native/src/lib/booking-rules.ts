@@ -1,0 +1,51 @@
+import { tourDates } from "./tours";
+import type { Party, Tour } from "./types";
+
+const PHONE = /^[0-9+ ]{8,20}$/;
+
+export type BookingDraft = Party & { name: string; phone: string; date: string; note: string };
+
+function countOk(value: number, min: number) {
+  return Number.isInteger(value) && value >= min && value <= 30;
+}
+
+/** Body for POST /api/bookings. The price is never sent; the server recomputes it. */
+export function bookingPayload(tourId: string, draft: BookingDraft) {
+  return {
+    tourId,
+    date: draft.date || undefined,
+    name: draft.name.trim(),
+    phone: draft.phone.trim(),
+    note: draft.note.trim() || undefined,
+    adults: draft.adults,
+    kidsOwnBed: draft.kidsOwnBed,
+    kidsSharedBed: draft.kidsSharedBed,
+    singleRooms: draft.singleRooms,
+    website: "",
+  };
+}
+
+export function bookingCreated(body: unknown): { id: string; total: number; deposit: number; status?: string; token?: string } | null {
+  if (!body || typeof body !== "object") return null;
+  const row = body as { id?: unknown; total?: unknown; deposit?: unknown; status?: unknown; token?: unknown };
+  if (typeof row.id !== "string" || typeof row.total !== "number") return null;
+  return {
+    id: row.id,
+    total: row.total,
+    deposit: typeof row.deposit === "number" ? row.deposit : 0,
+    status: typeof row.status === "string" ? row.status : undefined,
+    token: typeof row.token === "string" ? row.token : undefined,
+  };
+}
+
+/** Client checks that match POST /api/bookings. The server still decides. */
+export function bookingError(tour: Pick<Tour, "dates">, draft: BookingDraft) {
+  if (draft.name.trim().length < 2) return "Нэрээ оруулна уу.";
+  if (draft.name.trim().length > 80) return "Нэр хэт урт байна.";
+  if (!PHONE.test(draft.phone.trim())) return "Утасны дугаараа шалгана уу.";
+  if (!countOk(draft.adults, 1) || !countOk(draft.kidsOwnBed, 0) || !countOk(draft.kidsSharedBed, 0) || !countOk(draft.singleRooms, 0)) return "Хүний тоо буруу байна.";
+  const dates = tourDates(tour);
+  if (draft.date && dates.length > 1 && !dates.includes(draft.date)) return "Огноо буруу байна.";
+  if (draft.note.length > 500) return "Тэмдэглэл хэт урт байна.";
+  return null;
+}
