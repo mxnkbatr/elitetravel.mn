@@ -67,8 +67,8 @@ export function ToursScreen() {
       renderItem={({ item }) => {
         const seats = seatHint(catalog.seats, item.id);
         return (
-          <View style={[{ marginBottom: 16, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
-            <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })}>
+          <View style={[{ marginBottom: 16, backgroundColor: colors.card, borderRadius: 28 }, cardShadow]}>
+            <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })} style={{ borderRadius: 28, overflow: "hidden" }}>
               <View>
                 <RemoteImage uri={item.image} width={1000} height={720} alt={item.title} style={{ width: "100%", height: 210 }} />
                 <Text style={{ position: "absolute", left: 14, top: 14, backgroundColor: colors.card, color: colors.text, borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.destination}</Text>

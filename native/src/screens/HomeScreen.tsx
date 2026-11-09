@@ -198,7 +198,8 @@ function TourCard({ tour, index, height, plateInset, compact, saved, onToggle, o
   const plate = colors.dark ? "rgba(18,40,36,0.94)" : "rgba(255,252,247,0.94)";
   return (
     <Stagger index={index}>
-      <Press scaleTo={0.98} label={tour.title} onPress={open} style={[{ height, borderRadius: radii.xxl, overflow: "hidden", backgroundColor: colors.card }, cardShadow]}>
+      <View style={[{ height, borderRadius: radii.xxl, backgroundColor: colors.card }, cardShadow]}>
+      <Press scaleTo={0.98} label={tour.title} onPress={open} style={{ flex: 1, borderRadius: radii.xxl, overflow: "hidden" }}>
         <View ref={imageRef} collapsable={false} style={{ flex: 1 }}>
           <RemoteImage uri={tour.image} width={1000} height={800} alt={tour.title} fade={false} style={{ width: "100%", height: "100%" }} />
         </View>
@@ -210,8 +211,9 @@ function TourCard({ tour, index, height, plateInset, compact, saved, onToggle, o
             <Text style={{ color: colors.accent, fontSize: 14, fontFamily: fontsReady ? fonts.sansBold : undefined }}>{formatPrice(tour.price)}</Text>
           </View>
         </View>
-        <SaveHeart saved={saved} onToggle={onToggle} style={{ position: "absolute", top: 12, right: 12, zIndex: 3 }} />
       </Press>
+      <SaveHeart saved={saved} onToggle={onToggle} style={{ position: "absolute", top: 8, right: 8, zIndex: 3 }} />
+      </View>
     </Stagger>
   );
 }

@@ -8,8 +8,8 @@ import Animated, { cancelAnimation, Easing, interpolate, useAnimatedScrollHandle
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { ItineraryTimeline } from "../components/ItineraryTimeline";
-import { Fade, FlyingHero, Rise, SpringPress, useMotionFlag } from "../components/motion";
 import { SaveHeart } from "../components/SaveHeart";
+import { Fade, FlyingHero, Rise, SpringPress, useMotionFlag } from "../components/motion";
 import { TourSkeleton } from "../components/skeleton";
 import { GlassBar, Press, RemoteImage, StateBlock, Txt } from "../components/ui";
 import { API_ORIGIN, INSTAGRAM, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
