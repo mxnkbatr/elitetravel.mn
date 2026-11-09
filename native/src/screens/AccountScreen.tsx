@@ -5,6 +5,7 @@ import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cardShadow, Field, Press, ScreenScrollSpacer, StateBlock, Txt } from "../components/ui";
 import { INSTAGRAM, PHONE_ALT, PHONE_DISPLAY, PHONE_TEL } from "../lib/config";
+import { usePush } from "../state/push";
 import { useSession } from "../state/session";
 import { fonts, radii, space, typeScale, useTheme } from "../theme";
 
@@ -13,6 +14,7 @@ export function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { colors, fontsReady } = useTheme();
   const session = useSession();
+  const push = usePush();
   const [name, setName] = useState(session.profile?.name ?? "");
   const [phone, setPhone] = useState(session.profile?.phone ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +69,33 @@ export function AccountScreen() {
         </View>
       )}
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+      <Press label="Хадгалсан" onPress={() => router.push("/saved")} style={[{ backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg, flexDirection: "row", alignItems: "center", gap: space.md }, cardShadow]}>
+        <Ionicons name="heart" size={20} color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Хадгалсан</Text>
+          <Txt muted>Энэ утсан дээр хадгалсан аялал</Txt>
+        </View>
+        <Text style={{ color: colors.accent, fontWeight: "700", fontFamily: fontsReady ? fonts.sansBold : undefined }}>{session.saved.length}</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+      </Press>
+      <View style={[{ gap: space.sm, backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg }, cardShadow]}>
+        <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Мэдэгдэл</Text>
+        <Txt muted>Захиалгын мэдээ энэ утсанд ирнэ. Апп нээгдэхэд зөвшөөрөл асуухгүй.</Txt>
+        {push.permission === "unavailable" ? (
+          <Txt muted>Firebase мэдэгдэл зөвхөн утасны апп дээр бүртгэгдэнэ.</Txt>
+        ) : (
+          <Press
+            label={push.enabled ? "Мэдэгдэл унтраах" : "Мэдэгдэл асаах"}
+            disabled={push.busy}
+            onPress={() => void (push.enabled ? push.disable() : push.enable())}
+            style={{ height: 48, borderRadius: 18, backgroundColor: push.enabled ? colors.bgSoft : colors.accent, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text style={{ color: push.enabled ? colors.text : colors.onAccent, fontWeight: "700" }}>{push.busy ? "Түр хүлээнэ үү" : push.enabled ? "Асаалттай · унтраах" : "Унтраалттай · асаах"}</Text>
+          </Press>
+        )}
+        {push.permission === "denied" ? <Txt muted>Зөвшөөрөл хаалттай. Товч нь iOS тохиргоог нээнэ.</Txt> : null}
+        {push.error ? <Text style={{ color: colors.danger }}>{push.error}</Text> : null}
+      </View>
       <View style={[{ marginTop: space.xs, gap: space.xs, backgroundColor: colors.card, borderRadius: radii.xxl, padding: space.lg }, cardShadow]}>
         <Text style={{ color: colors.text, fontSize: typeScale.section, fontFamily: fontsReady ? fonts.display : undefined }}>Холбоо барих</Text>
         <Txt muted>Аялал, үнэ, огнооны талаар бидэнтэй холбогдоорой.</Txt>

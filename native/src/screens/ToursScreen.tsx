@@ -2,10 +2,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SaveHeart } from "../components/SaveHeart";
 import { Banner, cardShadow, Press, RemoteImage, ScreenScrollSpacer, StateBlock } from "../components/ui";
 import { formatPrice } from "../lib/money";
 import { searchTours, seatHint } from "../lib/tours";
 import { useCatalog } from "../state/catalog";
+import { useSession } from "../state/session";
 import { fonts, useTheme } from "../theme";
 
 export function ToursScreen() {
@@ -14,6 +16,7 @@ export function ToursScreen() {
   const insets = useSafeAreaInsets();
   const { colors, fontsReady } = useTheme();
   const catalog = useCatalog();
+  const session = useSession();
   const [query, setQuery] = useState(typeof params.q === "string" ? params.q : "");
   const [filter, setFilter] = useState("all");
   const destinations = useMemo(() => {
@@ -64,20 +67,23 @@ export function ToursScreen() {
       renderItem={({ item }) => {
         const seats = seatHint(catalog.seats, item.id);
         return (
-          <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })} style={[{ marginBottom: 16, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
-            <View>
-              <RemoteImage uri={item.image} width={1000} height={720} alt={item.title} style={{ width: "100%", height: 210 }} />
-              <Text style={{ position: "absolute", left: 14, top: 14, backgroundColor: "rgba(255,255,255,0.94)", color: "#0a2a26", borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.destination}</Text>
-              {item.discount ? <Text style={{ position: "absolute", right: 14, top: 14, backgroundColor: colors.accent, color: "white", borderRadius: 999, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.discount}</Text> : null}
-            </View>
-            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 4 }}>
-              <Text style={{ color: colors.text, fontSize: 28, lineHeight: 30, fontFamily: fontsReady ? fonts.display : undefined }}>{item.title}</Text>
-              <Text style={{ color: colors.muted, marginTop: 2 }}>{[item.duration, item.dates].filter(Boolean).join(" · ")}</Text>
-              {item.oldPrice ? <Text style={{ color: "#7d948d", textDecorationLine: "line-through", marginTop: 8 }}>{formatPrice(item.oldPrice)}</Text> : null}
-              <Text style={{ color: colors.accent, fontSize: 20, fontWeight: "700" }}>{formatPrice(item.price)}</Text>
-              {seats ? <Text style={{ color: colors.gold, fontWeight: "700" }}>{seats}</Text> : null}
-            </View>
-          </Press>
+          <View style={[{ marginBottom: 16, backgroundColor: colors.card, borderRadius: 28, overflow: "hidden" }, cardShadow]}>
+            <Press label={item.title} onPress={() => router.push({ pathname: "/tour/[id]", params: { id: item.id } })}>
+              <View>
+                <RemoteImage uri={item.image} width={1000} height={720} alt={item.title} style={{ width: "100%", height: 210 }} />
+                <Text style={{ position: "absolute", left: 14, top: 14, backgroundColor: "rgba(255,255,255,0.94)", color: "#0a2a26", borderRadius: 999, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.destination}</Text>
+                {item.discount ? <Text style={{ position: "absolute", right: 14, top: 14, backgroundColor: colors.accent, color: "white", borderRadius: 999, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 5, fontSize: 12, fontWeight: "700" }}>{item.discount}</Text> : null}
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 4 }}>
+                <Text style={{ color: colors.text, fontSize: 28, lineHeight: 30, fontFamily: fontsReady ? fonts.display : undefined }}>{item.title}</Text>
+                <Text style={{ color: colors.muted, marginTop: 2 }}>{[item.duration, item.dates].filter(Boolean).join(" · ")}</Text>
+                {item.oldPrice ? <Text style={{ color: "#7d948d", textDecorationLine: "line-through", marginTop: 8 }}>{formatPrice(item.oldPrice)}</Text> : null}
+                <Text style={{ color: colors.accent, fontSize: 20, fontWeight: "700" }}>{formatPrice(item.price)}</Text>
+                {seats ? <Text style={{ color: colors.gold, fontWeight: "700" }}>{seats}</Text> : null}
+              </View>
+            </Press>
+            <SaveHeart saved={session.saved.includes(item.id)} onToggle={() => void session.toggleSaved(item.id)} style={{ position: "absolute", right: 12, top: 154 }} />
+          </View>
         );
       }}
       ListFooterComponent={<ScreenScrollSpacer />}
