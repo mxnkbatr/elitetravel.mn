@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BookingSuccess } from "../components/BookingSuccess";
 import { Field, Press, StateBlock, Stepper, Txt } from "../components/ui";
 import { previewMode } from "../lib/config";
 import { apiRequest, ApiError } from "../lib/api";
@@ -31,6 +32,7 @@ export function BookScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
+  const [previewCelebration, setPreviewCelebration] = useState(false);
   const dates = tour ? tourDates(tour) : [];
   const estimate = useMemo(() => (tour ? quote(tour, draft) : null), [tour, draft]);
 
@@ -45,7 +47,7 @@ export function BookScreen() {
       return;
     }
     if (previewMode) {
-      setError("Урьдчилсан харагдац тул захиалгын хүсэлт илгээгдэхгүй.");
+      setPreviewCelebration(true);
       return;
     }
     setBusy(true);
@@ -66,24 +68,20 @@ export function BookScreen() {
     }
   }
 
+  if (previewCelebration) {
+    return <BookingSuccess preview onDone={() => router.back()} />;
+  }
+
   if (created) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, padding: 22, paddingTop: insets.top + 24, gap: 12 }}>
-        <Text style={{ color: colors.text, fontSize: 34, fontFamily: fontsReady ? fonts.display : undefined }}>Хүсэлт бүртгэгдлээ</Text>
-        <Txt>Энэ бол төлбөр биш. Серверийн бүртгэсэн дүн:</Txt>
-        <Text style={{ color: colors.accent, fontSize: 28, fontWeight: "700" }}>{formatPrice(created.total)}</Text>
-        <Txt>Дугаар: {created.id}</Txt>
-        {created.deposit ? <Txt>Урьдчилгаа: {formatPrice(created.deposit)}</Txt> : null}
-        <Txt>Төлөв: {created.status === "waitlist" ? "Хүлээлэг" : "Шинэ хүсэлт"}</Txt>
-        <Txt muted>Төлбөр хийгдээгүй. QPay нэхэмжлэхийг захиалга дотроос нээнэ.</Txt>
-        {created.token ? (
-          <Press label="Захиалга нээх" onPress={() => router.replace({ pathname: "/trip/[id]", params: { id: created.id } })} style={{ height: 52, borderRadius: 26, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: colors.onAccent, fontWeight: "700" }}>Захиалга нээх</Text>
-          </Press>
-        ) : (
-          <Txt>Сервер нээх түлхүүр буцаасангүй. {created.id} дугаараар утсаар холбогдоно уу.</Txt>
-        )}
-      </View>
+      <BookingSuccess
+        id={created.id}
+        total={created.total}
+        deposit={created.deposit}
+        status={created.status}
+        onDone={() => router.replace("/")}
+        onOpen={created.token ? () => router.replace({ pathname: "/trip/[id]", params: { id: created.id } }) : undefined}
+      />
     );
   }
 

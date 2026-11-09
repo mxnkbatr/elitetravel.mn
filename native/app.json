@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#e7f2ee",
+    "backgroundColor": "#0b241d",
     "splash": {
       "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
@@ -70,6 +70,11 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "web": {
+      "lang": "mn",
+      "themeColor": "#0b241d",
+      "backgroundColor": "#0b241d"
     }
   }
 }

@@ -3,15 +3,18 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BoardingPass } from "../components/BoardingPass";
 import { Rise } from "../components/motion";
 import { TripsSkeleton } from "../components/skeleton";
 import { cardShadow, Press, RemoteImage, ScreenScrollSpacer, Txt } from "../components/ui";
-import { STATUS_LABEL } from "../lib/labels";
+import { previewMode } from "../lib/config";
 import { formatPrice } from "../lib/money";
 import { isBookable } from "../lib/tours";
+import type { LocalBooking } from "../lib/types";
 import { useCatalog } from "../state/catalog";
 import { useDeviceBookings } from "../state/device-bookings";
 import { useSession } from "../state/session";
+import { previewPasses } from "../preview/fixture";
 import { fonts, radii, space, typeScale, useTheme } from "../theme";
 
 type Tab = "requests" | "saved";
@@ -39,6 +42,8 @@ export function TripsScreen() {
   const ideas = catalog.tours.filter((tour) => isBookable(tour) && !session.saved.includes(tour.id)).slice(0, 4);
   const loading = session.status === "loading" || !device.ready;
   const requestsUnknown = !loading && device.bookings.length === 0 && (session.status === "offline" || refreshError != null);
+  const showingSamples = previewMode && !requestsUnknown && device.bookings.length === 0;
+  const passes: Array<LocalBooking & { travellers?: number }> = showingSamples ? previewPasses : device.bookings;
 
   if (loading) {
     return (
@@ -54,10 +59,10 @@ export function TripsScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingTop: insets.top + space.md, paddingHorizontal: space.lg }}>
       <Text style={{ color: colors.text, fontSize: typeScale.display, lineHeight: 36, fontFamily: fontsReady ? fonts.display : undefined }}>Миний аялал</Text>
       <Text style={{ color: colors.muted, marginTop: space.xs, fontFamily: fontsReady ? fonts.sans : undefined }}>Хүсэлт болон хадгалсан аяллууд</Text>
-      <View style={{ flexDirection: "row", backgroundColor: "rgba(10,42,38,0.06)", borderRadius: 16, padding: 4, marginTop: 16 }}>
+      <View style={{ flexDirection: "row", backgroundColor: colors.dark ? "rgba(244,239,230,0.08)" : "rgba(16,36,31,0.06)", borderRadius: 16, padding: 4, marginTop: 16 }}>
         {(
           [
-            ["requests", "Хүсэлтүүд", device.bookings.length],
+            ["requests", "Хүсэлтүүд", passes.length],
             ["saved", "Хадгалсан", savedTours.length],
           ] as const
         ).map(([key, label, count]) => {
@@ -81,7 +86,7 @@ export function TripsScreen() {
                 <Text style={{ color: colors.accent, fontWeight: "700" }}>Дахин шалгах</Text>
               </Press>
             </View>
-          ) : device.bookings.length === 0 ? (
+          ) : passes.length === 0 ? (
             <Rise style={[{ alignItems: "center", backgroundColor: colors.card, borderRadius: radii.xxl, paddingHorizontal: space.xl, paddingVertical: space.xxl }, cardShadow]}>
               <View style={{ width: 64, height: 64, borderRadius: radii.lg, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="ticket-outline" size={28} color={colors.onAccent} />
@@ -93,19 +98,29 @@ export function TripsScreen() {
               </Press>
             </Rise>
           ) : (
-            device.bookings.map((item) => {
-              const tour = catalog.tourById(item.tourId);
-              return (
-                <Press key={item.id} label={item.id} disabled={!item.token} onPress={() => item.token && router.push({ pathname: "/trip/[id]", params: { id: item.id } })} style={[{ backgroundColor: colors.card, borderRadius: 22, marginBottom: 12, overflow: "hidden" }, cardShadow]}>
-                  {tour?.image ? <RemoteImage uri={tour.image} width={800} height={360} alt="" style={{ width: "100%", height: 110 }} /> : null}
-                  <View style={{ padding: 14 }}>
-                    <Text style={{ color: colors.text, fontSize: 20, fontFamily: fontsReady ? fonts.display : undefined }}>{tour?.title ?? item.tourTitle}</Text>
-                    <Text style={{ color: colors.muted, marginTop: 4 }}>{item.id}{item.date ? ` · ${item.date}` : ""}</Text>
-                    <Text style={{ color: colors.accent, fontWeight: "700", marginTop: 6 }}>{formatPrice(item.total)} · {item.status ? STATUS_LABEL[item.status] : "Нээх"}</Text>
-                  </View>
-                </Press>
-              );
-            })
+            <View>
+              {showingSamples ? <Txt muted style={{ marginBottom: 10 }}>Урьдчилсан харагдац · жишээ тасалбар. Серверийн захиалга биш.</Txt> : null}
+              {passes.map((item) => {
+                const tour = catalog.tourById(item.tourId);
+                const account = session.bookings.find((booking) => booking.id === item.id);
+                const travellers = account ? account.adults + account.kidsOwnBed + account.kidsSharedBed : item.travellers;
+                return (
+                  <BoardingPass
+                    key={item.id}
+                    id={item.id}
+                    destinationKey={tour?.destinationKey}
+                    destination={tour?.destination}
+                    title={tour?.title ?? item.tourTitle}
+                    date={item.date}
+                    travellers={travellers}
+                    totalLabel={formatPrice(item.total)}
+                    status={item.status}
+                    stay={tour?.stay}
+                    onOpen={item.token ? () => router.push({ pathname: "/trip/[id]", params: { id: item.id } }) : undefined}
+                  />
+                );
+              })}
+            </View>
           )}
         </View>
       ) : (
