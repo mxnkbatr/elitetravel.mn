@@ -1,7 +1,7 @@
 import "server-only";
 
 import { seedNews, type NewsItem } from "@/data/news";
-import { ensureTourCalculator, seedTours, type Tour } from "@/data/tours";
+import { applySaleExpiry, ensureTourCalculator, seedTours, type Tour } from "@/data/tours";
 import { reportError } from "@/lib/server/error-log";
 import { supabaseAdmin } from "@/lib/server/supabase-admin";
 import { unstable_cache } from "next/cache";
@@ -12,18 +12,17 @@ export const CONTENT_TAG = "content";
 async function load<T>(table: "tours" | "news", fallback: T[]): Promise<T[]> {
   const db = supabaseAdmin();
   // Local dev without Supabase keys still renders the original catalogue
-  if (!db) {
-    return table === "tours" ? (fallback as Tour[]).map(ensureTourCalculator) as T[] : fallback;
-  }
+  if (!db) return table === "tours" ? (prepareTours(fallback as Tour[]) as T[]) : fallback;
   const { data, error } = await db.from(table).select("data").order("position").order("id");
   if (error) {
     await reportError(`${table} load failed`, error);
     throw new Error(`Could not load ${table}`);
   }
   const rows = data.map((row) => row.data as T);
-  if (table === "tours") return (rows as Tour[]).map(ensureTourCalculator) as T[];
-  return rows;
+  return table === "tours" ? (prepareTours(rows as Tour[]) as T[]) : rows;
 }
+
+const prepareTours = (tours: Tour[]) => tours.map((t) => ensureTourCalculator(applySaleExpiry(t)));
 
 const cachedTours = unstable_cache(() => load<Tour>("tours", seedTours), ["tours"], {
   tags: [CONTENT_TAG],

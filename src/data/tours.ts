@@ -18,93 +18,30 @@ export type DatePrice = {
   oldPrice?: number;
 };
 
-/** Lovable-style room calculator — optional; when enabled the tour detail booking UI uses it. */
+/**
+ * Room price calculator settings. The adult price is never stored here: the calculator always
+ * uses the same `price` / `oldPrice` / `pricing.saleEndsAt` the page displays.
+ */
 export type TourCalculatorConfig = {
   enabled?: boolean;
-  adultPrice?: number;
+  /** Y — no-bed child pays (adult price − Y). 0 is allowed. */
   childDiscount?: number;
-  childBasePrice?: number;
-  childSalePrice?: number;
+  /** Z — per single room */
   singleSupplement?: number;
   allowChildExtraBed?: boolean;
+  /** P — deposit as % of the total */
   depositPercent?: number;
-  singleAdultChildAsAdult?: boolean;
-  sale?: { endsAt?: string };
 };
 
-/**
- * Hard defaults for the seven live calculator tours.
- * Applied when Supabase JSON omits `calculator` so the UI never silently falls back to legacy steppers.
- * Admin can still set `enabled: false` to turn one off.
- */
+/** Settings for tours whose child/single/deposit rules differ from their `pricing` block. */
 export const TOUR_CALCULATOR_DEFAULTS: Record<string, TourCalculatorConfig> = {
-  "weeknd-world-tour": {
-    enabled: true,
-    adultPrice: 6_290_000,
-    childDiscount: 0,
-    singleSupplement: 1_200_000,
-    allowChildExtraBed: false,
-    depositPercent: 50,
-    singleAdultChildAsAdult: true,
-    sale: { endsAt: "2026-09-15T00:00:00+08:00" },
-  },
-  "dately-show-hainan": {
-    enabled: true,
-    adultPrice: 2_990_000,
-    childDiscount: 300_000,
-    singleSupplement: 700_000,
-    allowChildExtraBed: true,
-    depositPercent: 30,
-    singleAdultChildAsAdult: true,
-  },
-  hainan: {
-    enabled: true,
-    adultPrice: 2_690_000,
-    childDiscount: 300_000,
-    singleSupplement: 700_000,
-    allowChildExtraBed: true,
-    depositPercent: 30,
-    singleAdultChildAsAdult: true,
-  },
-  "hainan-2": {
-    enabled: true,
-    adultPrice: 3_290_000,
-    childDiscount: 300_000,
-    singleSupplement: 700_000,
-    allowChildExtraBed: true,
-    depositPercent: 30,
-    singleAdultChildAsAdult: true,
-  },
-  "hainan-3": {
-    enabled: true,
-    adultPrice: 3_290_000,
-    childDiscount: 300_000,
-    singleSupplement: 700_000,
-    allowChildExtraBed: true,
-    depositPercent: 30,
-    singleAdultChildAsAdult: true,
-  },
-  "hainan-4": {
-    enabled: true,
-    adultPrice: 2_990_000,
-    childDiscount: 300_000,
-    singleSupplement: 700_000,
-    allowChildExtraBed: true,
-    depositPercent: 30,
-    singleAdultChildAsAdult: true,
-  },
-  bali: {
-    enabled: true,
-    adultPrice: 5_790_000,
-    childDiscount: 0,
-    childBasePrice: 5_990_000,
-    childSalePrice: 5_490_000,
-    singleSupplement: 1_100_000,
-    allowChildExtraBed: true,
-    depositPercent: 50,
-    singleAdultChildAsAdult: true,
-    sale: { endsAt: "2026-09-07T00:00:00+08:00" },
-  },
+  "weeknd-world-tour": { enabled: true, childDiscount: 0, singleSupplement: 1_200_000, allowChildExtraBed: false, depositPercent: 50 },
+  "dately-show-hainan": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
+  hainan: { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
+  "hainan-2": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
+  "hainan-3": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
+  "hainan-4": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
+  bali: { enabled: true, childDiscount: 0, singleSupplement: 1_100_000, allowChildExtraBed: true, depositPercent: 50 },
 };
 
 type TourLike = {
@@ -121,39 +58,65 @@ type TourLike = {
 };
 
 /**
- * Ensure the room calculator is on for every priced tour.
- * Known IDs use TOUR_CALCULATOR_DEFAULTS; others derive from price + pricing.
- * Admin can still set `calculator.enabled: false` to hide it.
+ * Turn the calculator on for every priced tour. Known IDs use TOUR_CALCULATOR_DEFAULTS; others
+ * derive Y/Z/P from `pricing`. `calculator.enabled: false` keeps it off.
  */
 export function ensureTourCalculator<T extends TourLike>(tour: T): T {
   if (tour.calculator?.enabled === false) return tour;
 
   const known = TOUR_CALCULATOR_DEFAULTS[tour.id];
-  if (known) {
-    return { ...tour, calculator: { ...known, ...tour.calculator, enabled: true } };
-  }
+  if (known) return { ...tour, calculator: { ...known, ...tour.calculator, enabled: true } };
 
-  const adultPrice = tour.calculator?.adultPrice ?? tour.price ?? null;
-  if (adultPrice == null || adultPrice <= 0) return tour;
+  const price = tour.price ?? null;
+  if (price == null || price <= 0) return tour;
 
   const childShared = tour.pricing?.childSharedBed;
-  const derivedDiscount =
-    childShared != null && childShared < adultPrice ? Math.max(0, adultPrice - childShared) : 300_000;
-
   const derived: TourCalculatorConfig = {
     enabled: true,
-    adultPrice,
-    childDiscount: derivedDiscount,
-    singleSupplement: tour.pricing?.singleSupplement ?? 700_000,
+    childDiscount: childShared != null ? Math.max(0, price - childShared) : 0,
+    singleSupplement: tour.pricing?.singleSupplement ?? 0,
     allowChildExtraBed: tour.pricing?.childOwnBed !== false,
     depositPercent: tour.pricing?.depositPercent ?? 30,
-    singleAdultChildAsAdult: true,
-    ...(tour.pricing?.saleEndsAt ? { sale: { endsAt: tour.pricing.saleEndsAt } } : {}),
   };
+  return { ...tour, calculator: { ...derived, ...tour.calculator, enabled: true } };
+}
 
+type SaleSource = Pick<Tour, "price" | "oldPrice" | "pricing" | "datePrices">;
+
+/** True until `pricing.saleEndsAt` passes; a tour without an end date keeps its sale. */
+export function saleRunning(tour: Pick<Tour, "pricing">, now = Date.now()) {
+  const ends = tour.pricing?.saleEndsAt ? Date.parse(tour.pricing.saleEndsAt) : NaN;
+  return !Number.isFinite(ends) || now < ends;
+}
+
+/**
+ * Server-side: once the sale has ended, `oldPrice` becomes the live price everywhere (cards,
+ * hero, calculator), so no page keeps showing the expired sale price.
+ */
+export function applySaleExpiry<T extends SaleSource>(tour: T, now = Date.now()): T {
+  if (saleRunning(tour, now)) return tour;
+  const flip = (price: number | null | undefined, old: number | null | undefined) =>
+    price != null && old != null && old > price ? old : price;
+  const datePrices = tour.datePrices
+    ? Object.fromEntries(
+        Object.entries(tour.datePrices).map(([k, d]) => {
+          const shift = d.oldPrice != null && d.oldPrice > d.price ? d.oldPrice - d.price : 0;
+          return [k, { price: flip(d.price, d.oldPrice) ?? d.price, childSharedBed: d.childSharedBed != null ? d.childSharedBed + shift : undefined }];
+        }),
+      )
+    : undefined;
+  const shift = tour.price != null && tour.oldPrice != null && tour.oldPrice > tour.price ? tour.oldPrice - tour.price : 0;
+  if (!shift && !datePrices) return tour;
   return {
     ...tour,
-    calculator: { ...derived, ...tour.calculator, enabled: true, adultPrice: tour.calculator?.adultPrice ?? adultPrice },
+    price: flip(tour.price, tour.oldPrice) ?? null,
+    oldPrice: null,
+    discount: shift ? undefined : (tour as { discount?: string }).discount,
+    tag: shift && (tour as { tag?: string }).tag === "sale" ? undefined : (tour as { tag?: string }).tag,
+    datePrices,
+    pricing: tour.pricing
+      ? { ...tour.pricing, childSharedBed: tour.pricing.childSharedBed != null ? tour.pricing.childSharedBed + shift : undefined }
+      : tour.pricing,
   };
 }
 
@@ -226,14 +189,27 @@ export function tourDates(t: Pick<Tour, "dates">) {
   return (t.dates ?? "").split("·").map((d) => d.trim()).filter(Boolean);
 }
 
-/** Resolve adult/child/old prices for a departure; falls back to tour defaults. */
-export function priceForDate(tour: Pick<Tour, "price" | "oldPrice" | "pricing" | "datePrices">, date?: string | null) {
+/**
+ * Adult/child/old prices for a departure; falls back to tour defaults.
+ * `running` = sale still on (client passes the ticking value from `useSaleActive`).
+ * After the sale ends `oldPrice` becomes the price, so page and calculator never disagree.
+ */
+export function priceForDate(tour: SaleSource, date?: string | null, running = saleRunning(tour)) {
   const override = date ? tour.datePrices?.[date] : undefined;
-  return {
-    price: override?.price ?? tour.price,
-    oldPrice: override?.oldPrice ?? tour.oldPrice ?? null,
-    childSharedBed: override?.childSharedBed ?? tour.pricing?.childSharedBed,
-  };
+  const price = override?.price ?? tour.price;
+  const oldPrice = override?.oldPrice ?? tour.oldPrice ?? null;
+  const childSharedBed = override?.childSharedBed ?? tour.pricing?.childSharedBed;
+  const onSale = price != null && oldPrice != null && oldPrice > price;
+  if (onSale && !running) {
+    return {
+      price: oldPrice,
+      oldPrice: null,
+      childSharedBed: childSharedBed != null ? childSharedBed + (oldPrice - price) : undefined,
+      saleActive: false,
+      saleEndsAt: tour.pricing?.saleEndsAt ?? null,
+    };
+  }
+  return { price, oldPrice: onSale ? oldPrice : null, childSharedBed, saleActive: onSale, saleEndsAt: tour.pricing?.saleEndsAt ?? null };
 }
 
 /** Lowest adult price across default + date overrides — for cards ("…-аас"). */
@@ -534,13 +510,10 @@ export const seedTours: Tour[] = [
     },
     calculator: {
       enabled: true,
-      adultPrice: 6_290_000,
       childDiscount: 0,
       singleSupplement: 1_200_000,
       allowChildExtraBed: false,
       depositPercent: 50,
-      singleAdultChildAsAdult: true,
-      sale: { endsAt: "2026-09-15T00:00:00+08:00" },
     },
   },
   {
@@ -641,12 +614,10 @@ export const seedTours: Tour[] = [
     },
     calculator: {
       enabled: true,
-      adultPrice: 2_990_000,
       childDiscount: 300_000,
       singleSupplement: 700_000,
       allowChildExtraBed: true,
       depositPercent: 30,
-      singleAdultChildAsAdult: true,
     },
     notes: [
       hainanChildNote,
@@ -666,12 +637,10 @@ export const seedTours: Tour[] = [
     pricing: { child: "2–12 нас: хамт унтвал ₮300'000 хямд", childSharedBed: 2990000, singleSupplement: 700000, depositPercent: 30 },
     calculator: {
       enabled: true,
-      adultPrice: 3_290_000,
       childDiscount: 300_000,
       singleSupplement: 700_000,
       allowChildExtraBed: true,
       depositPercent: 30,
-      singleAdultChildAsAdult: true,
     },
   },
   {
@@ -687,12 +656,10 @@ export const seedTours: Tour[] = [
     pricing: { child: "2–12 нас: хамт унтвал ₮300'000 хямд", childSharedBed: 2690000, singleSupplement: 700000, depositPercent: 30 },
     calculator: {
       enabled: true,
-      adultPrice: 2_990_000,
       childDiscount: 300_000,
       singleSupplement: 700_000,
       allowChildExtraBed: true,
       depositPercent: 30,
-      singleAdultChildAsAdult: true,
     },
   },
   {
@@ -795,15 +762,10 @@ export const seedTours: Tour[] = [
     },
     calculator: {
       enabled: true,
-      adultPrice: 5_790_000,
       childDiscount: 0,
-      childBasePrice: 5_990_000,
-      childSalePrice: 5_490_000,
       singleSupplement: 1_100_000,
       allowChildExtraBed: true,
       depositPercent: 50,
-      singleAdultChildAsAdult: true,
-      sale: { endsAt: "2026-09-07T00:00:00+08:00" },
     },
   },
   {
@@ -822,12 +784,10 @@ export const seedTours: Tour[] = [
     pricing: { child: "2–12 нас: хамт унтвал ₮2'290'000", childSharedBed: 2290000, singleSupplement: 700000, depositPercent: 30 },
     calculator: {
       enabled: true,
-      adultPrice: 3_290_000,
       childDiscount: 300_000,
       singleSupplement: 700_000,
       allowChildExtraBed: true,
       depositPercent: 30,
-      singleAdultChildAsAdult: true,
     },
   },
   {
@@ -843,12 +803,10 @@ export const seedTours: Tour[] = [
     pricing: { child: "2–12 нас: хамт унтвал ₮2'390'000", childSharedBed: 2390000, singleSupplement: 700000, depositPercent: 30 },
     calculator: {
       enabled: true,
-      adultPrice: 2_690_000,
       childDiscount: 300_000,
       singleSupplement: 700_000,
       allowChildExtraBed: true,
       depositPercent: 30,
-      singleAdultChildAsAdult: true,
     },
   },
   {

@@ -115,18 +115,12 @@ export function parseTour(input: unknown): Tour {
 function parseCalculator(raw: unknown): TourCalculatorConfig | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const c = raw as Record<string, unknown>;
-  const sale = c.sale && typeof c.sale === "object" && !Array.isArray(c.sale) ? (c.sale as Record<string, unknown>) : null;
   const out: TourCalculatorConfig = {
     enabled: c.enabled === true ? true : c.enabled === false ? false : undefined,
-    adultPrice: num(c.adultPrice, "Тооцоолол · том хүн") ?? undefined,
     childDiscount: num(c.childDiscount, "Тооцоолол · хүүхдийн хөнгөлөлт") ?? undefined,
-    childBasePrice: num(c.childBasePrice, "Тооцоолол · хүүхдийн үндсэн үнэ") ?? undefined,
-    childSalePrice: num(c.childSalePrice, "Тооцоолол · хүүхдийн хямдралтай үнэ") ?? undefined,
     singleSupplement: num(c.singleSupplement, "Тооцоолол · ганц өрөө") ?? undefined,
     allowChildExtraBed: typeof c.allowChildExtraBed === "boolean" ? c.allowChildExtraBed : undefined,
     depositPercent: num(c.depositPercent, "Тооцоолол · урьдчилгаа %") ?? undefined,
-    singleAdultChildAsAdult: typeof c.singleAdultChildAsAdult === "boolean" ? c.singleAdultChildAsAdult : undefined,
-    sale: sale ? { endsAt: optSaleEnds(sale.endsAt) } : undefined,
   };
   return Object.values(out).some((v) => v !== undefined) ? out : undefined;
 }

@@ -6,7 +6,7 @@ import { DateRangeCalendar } from "@/components/DateRangeCalendar";
 import { Icon } from "@/components/Icon";
 import { PartnerLogo } from "@/components/PartnerLogo";
 import { initialCalculatorState, TourPriceCalculator, useTourCalculator } from "@/components/TourPriceCalculator";
-import { formatPrice, priceForDate, tourDates, type Tour, type TourSummary } from "@/data/tours";
+import { formatPrice, tourDates, type Tour, type TourSummary } from "@/data/tours";
 import { useAccount } from "@/lib/account";
 import { useSeats } from "@/lib/content";
 import { formatDateRange, parseDateRange, rangeDayCount } from "@/lib/dates";
@@ -146,15 +146,15 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
   );
   const useCalendar = calendarOptions.length > 0;
 
-  const [calcState, setCalcState] = useState<CalculatorState>(() => initialCalculatorState(2));
-  const calcQuote = useTourCalculator(tour, calcState);
-
   const [adults, setAdults] = useState(2);
   const [kidsOwnBed, setKidsOwnBed] = useState(0);
   const [kidsSharedBed, setKidsSharedBed] = useState(0);
   const [singleRooms, setSingleRooms] = useState(0);
   const [date, setDate] = useState(dateOptions.find((d) => !seats[d]?.closed) ?? dateOptions[0] ?? "");
   const [waitlisted, setWaitlisted] = useState(false);
+
+  const [calcState, setCalcState] = useState<CalculatorState>(() => initialCalculatorState(2, tour.calculator?.allowChildExtraBed !== false));
+  const { quote: calcQuote, rates } = useTourCalculator(tour, calcState, date);
 
   const party = useCalc
     ? calcQuote.party
@@ -178,7 +178,6 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
   const [copied, setCopied] = useState(false);
 
   const ownBedAllowed = p.childOwnBed !== false;
-  const rates = useMemo(() => priceForDate(tour, date), [tour, date]);
   const legacyQuote = useMemo(
     () => quote(tour, { adults, kidsOwnBed, kidsSharedBed, singleRooms }, date),
     [tour, adults, kidsOwnBed, kidsSharedBed, singleRooms, date],
@@ -193,7 +192,7 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState("");
 
-  if (rates.price == null && !(useCalc && tour.calculator?.adultPrice != null)) return null;
+  if (rates.price == null) return null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -316,9 +315,9 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
                     <div>
                       <p className="text-xs text-muted">Үнэ / хүн{date ? " · сонгосон огноо" : ""}</p>
                       <p className="mt-1 font-num text-3xl font-semibold text-accent">
-                        {formatPrice(useCalc ? calcQuote.adultPrice : rates.price)}
+                        {formatPrice(rates.price)}
                       </p>
-                      {!useCalc && rates.oldPrice ? <p className="text-sm text-muted line-through">{formatPrice(rates.oldPrice)}</p> : null}
+                      {rates.oldPrice ? <p className="text-sm text-muted line-through">{formatPrice(rates.oldPrice)}</p> : null}
                     </div>
                     {tour.discount ? <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">{tour.discount}</span> : null}
                   </div>
@@ -423,7 +422,7 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
                   ) : null}
 
                   {useCalc ? (
-                    <TourPriceCalculator tour={tour} state={calcState} onChange={setCalcState} quote={calcQuote} />
+                    <TourPriceCalculator tour={tour} state={calcState} onChange={setCalcState} quote={calcQuote} rates={rates} />
                   ) : (
                     <>
                       <div className="mt-5 min-w-0">

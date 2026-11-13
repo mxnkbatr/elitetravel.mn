@@ -129,15 +129,10 @@ const tourFields = z.object({
   calculator: z
     .object({
       enabled: z.boolean().optional(),
-      adultPrice: z.number().int().min(0).max(500_000_000).optional(),
       childDiscount: z.number().int().min(0).max(500_000_000).optional(),
-      childBasePrice: z.number().int().min(0).max(500_000_000).optional(),
-      childSalePrice: z.number().int().min(0).max(500_000_000).optional(),
       singleSupplement: z.number().int().min(0).max(500_000_000).optional(),
       allowChildExtraBed: z.boolean().optional(),
       depositPercent: z.number().int().min(0).max(100).optional(),
-      singleAdultChildAsAdult: z.boolean().optional(),
-      sale: z.object({ endsAt: z.string().datetime().optional() }).optional(),
     })
     .optional(),
   notes: z.array(z.string().max(1000)).max(20),

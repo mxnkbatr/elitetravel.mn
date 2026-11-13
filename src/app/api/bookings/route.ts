@@ -1,5 +1,5 @@
-import { formatPrice, getTour, isBookable, tourDates } from "@/data/tours";
-import { calculateTourPrice, parseCalculatorState } from "@/lib/tour-calculator";
+import { formatPrice, getTour, isBookable, priceForDate, tourDates } from "@/data/tours";
+import { calculateTourPrice, calculatorPayload, parseCalculatorState, resolveCalculator, roomName, type RoomType } from "@/lib/tour-calculator";
 import { quote } from "@/lib/pricing";
 import { getTours } from "@/lib/server/content";
 import { currentTraveller } from "@/lib/server/account";
@@ -78,34 +78,20 @@ export async function POST(request: Request) {
   let deposit: number;
   let calculator: Record<string, unknown> | null = null;
 
-  const calcState = tour.calculator?.enabled ? parseCalculatorState(body.calculator) : null;
+  const calcState = tour.calculator?.enabled
+    ? parseCalculatorState(body.calculator, resolveCalculator(tour).allowChildExtraBed)
+    : null;
+  if (tour.calculator?.enabled && body.calculator != null && !calcState) return fail(400, "Өрөөний сонголт буруу байна.");
   if (calcState) {
-    const q = calculateTourPrice(tour, calcState);
-    if (!q.ready) return fail(400, "Өрөөний сонголтоо бүрэн хийнэ үү.");
+    const q = calculateTourPrice(tour, calcState, priceForDate(tour, date));
+    if (!q.ready) return fail(400, "Бүх зочноо өрөөнд хуваарилна уу.");
     adults = q.party.adults;
     kidsOwnBed = q.party.kidsOwnBed;
     kidsSharedBed = q.party.kidsSharedBed;
     singleRooms = q.party.singleRooms;
     total = q.total;
     deposit = q.deposit;
-    calculator = {
-      adults: calcState.adults,
-      children: calcState.children,
-      pairRooms: calcState.pairRooms.map((r) => ({
-        choice: r.choice,
-        extraBed: r.kids.extraBed,
-        withParents: r.kids.withParents,
-      })),
-      oddRoom: calcState.oddRoom
-        ? { choice: calcState.oddRoom.choice, extraBed: calcState.oddRoom.kids.extraBed, withParents: calcState.oddRoom.kids.withParents }
-        : null,
-      childWithBed: q.childWithBed,
-      childNoBed: q.childNoBed,
-      singleRooms,
-      total,
-      deposit,
-      savings: q.savings,
-    };
+    calculator = calculatorPayload(calcState, q);
   } else {
     const a = count(body.adults, 1);
     const own = count(body.kidsOwnBed ?? 0, 0);
@@ -157,13 +143,8 @@ export async function POST(request: Request) {
     return fail(502, "Хүсэлт хадгалахад алдаа гарлаа.");
   }
 
-  const calcSummary = calculator
-    ? ` Өрөө: ${JSON.stringify({
-        pairs: (calculator.pairRooms as unknown[])?.length ?? 0,
-        odd: calculator.oddRoom ?? null,
-        kidsBed: calculator.childWithBed,
-        kidsNoBed: calculator.childNoBed,
-      })}.`
+  const calcSummary = calcState
+    ? ` Өрөө: ${calcState.rooms.map((r, i) => `${i + 1}) ${roomName(r.type as RoomType)}`).join(", ")}.`
     : "";
 
   await postMessage(

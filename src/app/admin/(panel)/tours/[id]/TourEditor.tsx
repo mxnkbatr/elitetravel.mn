@@ -274,44 +274,22 @@ export function TourEditor({ initial, originalId }: { initial: Tour; originalId:
         ) : null}
       </Section>
 
-      <Section title="2b. Өрөөний тооцоолол" hint="Идэвхжүүлбэл захиалгын хуудсанд Lovable-тай ижил өрөөний тооцоолуур гарна.">
+      <Section
+        title="2b. Өрөөний тооцоолол"
+        hint={`Том хүний үнэ дээрх «Үнэ» (${tour.price != null ? formatPrice(tour.price) : "—"}), хямдрал «Хуучин үнэ» + «Хямдрал дуусах»-аас автоматаар авна — хуудас, тооцоолол үргэлж ижил.`}
+      >
         <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
-          <input type="checkbox" checked={tour.calculator?.enabled === true} onChange={(e) => setCalc("enabled", e.target.checked ? true : false)} className="size-4 accent-[#0d8f84]" />
-          Тооцоолуур идэвхтэй (calculatorEnabled)
+          <input type="checkbox" checked={tour.calculator?.enabled !== false} onChange={(e) => setCalc("enabled", e.target.checked)} className="size-4 accent-[#0d8f84]" />
+          Тооцоолуур идэвхтэй
         </label>
-        <Field label="adultPrice (₮)" hint="Хоосон бол үндсэн үнэ">
-          <input inputMode="numeric" value={tour.calculator?.adultPrice ?? ""} onChange={(e) => setCalc("adultPrice", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
-        </Field>
-        <Field label="childDiscount (₮)" hint="Анхдагч 500000">
+        <Field label="Хүүхдийн хөнгөлөлт (₮)" hint="Хамт унтах хүүхэд = том хүний үнэ − энэ дүн. 0 байж болно.">
           <input inputMode="numeric" value={tour.calculator?.childDiscount ?? ""} onChange={(e) => setCalc("childDiscount", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
         </Field>
-        <Field label="childBasePrice (₮)">
-          <input inputMode="numeric" value={tour.calculator?.childBasePrice ?? ""} onChange={(e) => setCalc("childBasePrice", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
-        </Field>
-        <Field label="childSalePrice (₮)">
-          <input inputMode="numeric" value={tour.calculator?.childSalePrice ?? ""} onChange={(e) => setCalc("childSalePrice", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
-        </Field>
-        <Field label="singleSupplement (₮)" hint="Анхдагч 700000">
+        <Field label="Ганц өрөөний нэмэлт (₮)" hint="Хоосон бол дээрх «Ганц өрөөний нэмэгдэл»">
           <input inputMode="numeric" value={tour.calculator?.singleSupplement ?? ""} onChange={(e) => setCalc("singleSupplement", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
         </Field>
-        <Field label="depositPercent (%)">
+        <Field label="Урьдчилгаа (%)" hint="Хоосон бол дээрх «Урьдчилгаа»">
           <input inputMode="numeric" value={tour.calculator?.depositPercent ?? ""} onChange={(e) => setCalc("depositPercent", numOrNull(e.target.value) ?? undefined)} className={inputClass} />
-        </Field>
-        <Field label="sale.endsAt" hint="Хүүхдийн sale үнэ + countdown">
-          <input
-            type="datetime-local"
-            value={tour.calculator?.sale?.endsAt ? toLocalInput(tour.calculator.sale.endsAt) : ""}
-            onChange={(e) =>
-              setTour((t) => ({
-                ...t,
-                calculator: {
-                  ...t.calculator,
-                  sale: e.target.value ? { endsAt: new Date(e.target.value).toISOString() } : undefined,
-                },
-              }))
-            }
-            className={inputClass}
-          />
         </Field>
         <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
           <input
@@ -320,16 +298,7 @@ export function TourEditor({ initial, originalId }: { initial: Tour; originalId:
             onChange={(e) => setCalc("allowChildExtraBed", e.target.checked)}
             className="size-4 accent-[#0d8f84]"
           />
-          allowChildExtraBed — нэмэлт ор зөвшөөрөх
-        </label>
-        <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
-          <input
-            type="checkbox"
-            checked={tour.calculator?.singleAdultChildAsAdult !== false}
-            onChange={(e) => setCalc("singleAdultChildAsAdult", e.target.checked)}
-            className="size-4 accent-[#0d8f84]"
-          />
-          singleAdultChildAsAdult — 1+1 үед хүүхэд том хүний үнэ
+          Хүүхдэд нэмэлт ор зөвшөөрөх (том хүний үнээр)
         </label>
       </Section>
 
