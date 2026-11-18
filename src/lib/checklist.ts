@@ -1,6 +1,6 @@
 import { formatPrice } from "@/data/tours";
 import { docInfo } from "@/lib/documents";
-import { INSTALLMENT_PROVIDERS, partySize, passengerIssue, type Trip } from "@/lib/trips";
+import { INSTALLMENT_PROVIDERS, PAYMENTS_ENABLED, partySize, passengerIssue, type Trip } from "@/lib/trips";
 
 /**
  * What a traveller still has to do for one booking, in the order they should do it.
@@ -19,12 +19,12 @@ export type ChecklistItem = {
   details: string[];
 };
 
-export function tripChecklist(trip: Trip, now = new Date()): ChecklistItem[] {
+export function tripChecklist(trip: Trip, now = new Date(), payments = PAYMENTS_ENABLED): ChecklistItem[] {
   if (trip.status === "cancelled" || trip.status === "waitlist") return [];
   const items: ChecklistItem[] = [];
 
   const due = trip.payOptions[0];
-  items.push({
+  if (payments) items.push({
     key: "payment",
     section: "Төлбөр",
     done: !due,

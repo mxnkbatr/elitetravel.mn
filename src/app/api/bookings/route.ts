@@ -1,5 +1,14 @@
 import { formatPrice, getTour, isBookable, priceForDate, tourDates } from "@/data/tours";
-import { calculateTourPrice, calculatorPayload, parseCalculatorState, resolveCalculator, roomName, type RoomType } from "@/lib/tour-calculator";
+import {
+  ODD_LABEL,
+  PAIR_LABEL,
+  calculateTourPrice,
+  calculatorPayload,
+  parseCalculatorState,
+  resolveCalculator,
+  validateCalculatorState,
+  visiblePairs,
+} from "@/lib/tour-calculator";
 import { quote } from "@/lib/pricing";
 import { getTours } from "@/lib/server/content";
 import { currentTraveller } from "@/lib/server/account";
@@ -9,6 +18,7 @@ import { pushToStaff, sendLater } from "@/lib/server/push";
 import { departureState } from "@/lib/server/seats";
 import { supabaseAdmin } from "@/lib/server/supabase-admin";
 import { newAccessToken, postMessage, refreshSeats, statusNotice } from "@/lib/server/trips";
+import { PAYMENTS_ENABLED } from "@/lib/trips";
 import { randomBytes } from "node:crypto";
 
 export const runtime = "nodejs";
@@ -24,6 +34,8 @@ type Body = {
   kidsSharedBed?: unknown;
   singleRooms?: unknown;
   calculator?: unknown;
+  /** Client-shown total; if present and stale, return 409 with server quote */
+  expectedTotal?: unknown;
   /** Honeypot — real visitors never see or fill it */
   website?: unknown;
 };
@@ -78,13 +90,20 @@ export async function POST(request: Request) {
   let deposit: number;
   let calculator: Record<string, unknown> | null = null;
 
-  const calcState = tour.calculator?.enabled
-    ? parseCalculatorState(body.calculator, resolveCalculator(tour).allowChildExtraBed)
-    : null;
+  const allowExtra = resolveCalculator(tour).allowChildExtraBed;
+  const calcState = tour.calculator?.enabled ? parseCalculatorState(body.calculator, allowExtra) : null;
   if (tour.calculator?.enabled && body.calculator != null && !calcState) return fail(400, "Өрөөний сонголт буруу байна.");
   if (calcState) {
+    const invalid = validateCalculatorState(calcState, allowExtra);
+    if (invalid) return fail(400, invalid);
     const q = calculateTourPrice(tour, calcState, priceForDate(tour, date));
     if (!q.ready) return fail(400, "Бүх зочноо өрөөнд хуваарилна уу.");
+    if (typeof body.expectedTotal === "number" && body.expectedTotal !== q.total) {
+      return Response.json(
+        { error: "Үнэ шинэчлэгдсэн байна. Шинэ дүнгээ шалгана уу.", total: q.total, deposit: q.deposit, quote: calculatorPayload(calcState, q) },
+        { status: 409 },
+      );
+    }
     adults = q.party.adults;
     kidsOwnBed = q.party.kidsOwnBed;
     kidsSharedBed = q.party.kidsSharedBed;
@@ -144,7 +163,12 @@ export async function POST(request: Request) {
   }
 
   const calcSummary = calcState
-    ? ` Өрөө: ${calcState.rooms.map((r, i) => `${i + 1}) ${roomName(r.type as RoomType)}`).join(", ")}.`
+    ? ` Өрөө: ${[
+        ...visiblePairs(calcState).map((r, i) => (r.choice ? `Хос ${i + 1}: ${PAIR_LABEL[r.choice]}` : null)),
+        calcState.oddRoom?.choice ? ODD_LABEL[calcState.oddRoom.choice] : null,
+      ]
+        .filter(Boolean)
+        .join(", ")}.`
     : "";
 
   await postMessage(
@@ -152,7 +176,11 @@ export async function POST(request: Request) {
     "system",
     status === "waitlist"
       ? statusNotice("waitlist", { total, deposit, paid_amount: 0 })!
-      : `Сайн байна уу, ${name}! «${tour.title}» аяллын хүсэлтийг хүлээн авлаа (${id}). ${deposit ? `Урьдчилгаа ${formatPrice(deposit)}` : "Төлбөрөө"} «Төлбөр» хэсгээс QPay эсвэл хуваан төлөх аргаар төлмөгц захиалга автоматаар баталгаажна.${calcSummary} Асуух зүйлээ энд бичээрэй.`,
+      : `Сайн байна уу, ${name}! «${tour.title}» аяллын хүсэлтийг хүлээн авлаа (${id}). ${
+          PAYMENTS_ENABLED
+            ? `${deposit ? `Урьдчилгаа ${formatPrice(deposit)}` : "Төлбөрөө"} «Төлбөр» хэсгээс QPay эсвэл хуваан төлөх аргаар төлмөгц захиалга автоматаар баталгаажна.`
+            : `Манай баг тантай удахгүй холбогдож${deposit ? `, урьдчилгаа ${formatPrice(deposit)}-ийн` : ""} төлбөрийн мэдээллийг өгнө.`
+        }${calcSummary} Асуух зүйлээ энд бичээрэй.`,
   );
   await db.from("booking_requests").update({ traveller_seen_at: new Date().toISOString() }).eq("id", id);
   refreshSeats();

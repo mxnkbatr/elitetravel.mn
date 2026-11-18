@@ -132,7 +132,7 @@ export function TourDetailView({ tour }: { tour: Tour }) {
 
             {tour.notes?.length ? (
               <section className="rounded-[1.25rem] border border-[#e8b86d]/40 bg-[#e8b86d]/10 p-5">
-                <h3 className="font-display text-xl font-semibold">Анхаарах зүйлс</h3>
+                <h3 className="font-display text-xl font-semibold">Нэмэлт санамж</h3>
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-foam/85">
                   {tour.notes.map((n) => (
                     <li key={n}>{n}</li>

@@ -24,8 +24,12 @@ export type DatePrice = {
  */
 export type TourCalculatorConfig = {
   enabled?: boolean;
-  /** Y — no-bed child pays (adult price − Y). 0 is allowed. */
+  /** Y — no-bed child pays (adult price − Y). 0 is allowed. Ignored when childBasePrice is set. */
   childDiscount?: number;
+  /** Absolute no-bed child price (Bali). Overrides discount formula when set. */
+  childBasePrice?: number;
+  /** Sale-time no-bed child price when childBasePrice is set. */
+  childSalePrice?: number;
   /** Z — per single room */
   singleSupplement?: number;
   allowChildExtraBed?: boolean;
@@ -41,7 +45,15 @@ export const TOUR_CALCULATOR_DEFAULTS: Record<string, TourCalculatorConfig> = {
   "hainan-2": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
   "hainan-3": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
   "hainan-4": { enabled: true, childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
-  bali: { enabled: true, childDiscount: 0, singleSupplement: 1_100_000, allowChildExtraBed: true, depositPercent: 50 },
+  bali: {
+    enabled: true,
+    childDiscount: 0,
+    childBasePrice: 5_990_000,
+    childSalePrice: 5_490_000,
+    singleSupplement: 1_100_000,
+    allowChildExtraBed: true,
+    depositPercent: 50,
+  },
 };
 
 type TourLike = {
@@ -515,6 +527,9 @@ export const seedTours: Tour[] = [
       allowChildExtraBed: false,
       depositPercent: 50,
     },
+    notes: [
+      "The Weeknd тоглолт 14+ насны нөхцөлтэй. Тооцоолуур хүүхдийн тоог автоматаар хориглодоггүй — насны бодлогыг захиалгын үед баталгаажуулна.",
+    ],
   },
   {
     id: "dately-show-hainan",
@@ -763,6 +778,8 @@ export const seedTours: Tour[] = [
     calculator: {
       enabled: true,
       childDiscount: 0,
+      childBasePrice: 5_990_000,
+      childSalePrice: 5_490_000,
       singleSupplement: 1_100_000,
       allowChildExtraBed: true,
       depositPercent: 50,

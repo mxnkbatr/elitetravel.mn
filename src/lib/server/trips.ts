@@ -4,7 +4,7 @@ import { formatPrice } from "@/data/tours";
 import { reportError } from "@/lib/server/error-log";
 import { pushToBooking, pushToStaff, sendLater } from "@/lib/server/push";
 import { supabaseAdmin } from "@/lib/server/supabase-admin";
-import type { TripStatus } from "@/lib/trips";
+import { PAYMENTS_ENABLED, type TripStatus } from "@/lib/trips";
 import { revalidateTag } from "next/cache";
 import { randomBytes } from "node:crypto";
 
@@ -95,7 +95,11 @@ export function statusNotice(status: TripStatus, b: { total: number; deposit: nu
       const due = b.deposit > b.paid_amount ? b.deposit - b.paid_amount : b.total - b.paid_amount;
       return [
         "Таны захиалга баталгаажлаа ✅",
-        due > 0 ? `«Төлбөр» хэсгээс ${formatPrice(due)}-ийг QPay-ээр төлснөөр суудал тань баталгаажна.` : "",
+        due > 0
+          ? PAYMENTS_ENABLED
+            ? `«Төлбөр» хэсгээс ${formatPrice(due)}-ийг QPay-ээр төлснөөр суудал тань баталгаажна.`
+            : `${formatPrice(due)}-ийн төлбөрийн мэдээллийг манай баг танд илгээнэ.`
+          : "",
         "Зорчигчдын паспортын мэдээллийг «Зорчигчид» хэсэгт оруулаарай.",
       ]
         .filter(Boolean)

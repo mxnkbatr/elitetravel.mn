@@ -12,7 +12,7 @@ import type { MrzResult } from "@/lib/mrz";
 import { scanPassport } from "@/lib/passport-scan";
 import { markTripSeen } from "@/lib/trip-sync";
 import { useTraveller } from "@/lib/traveller-store";
-import { INSTALLMENT_PROVIDERS, STATUS_LABEL, partySize, passengerIssue, progressOf, type Passenger, type Trip } from "@/lib/trips";
+import { INSTALLMENT_PROVIDERS, PAYMENTS_ENABLED, STATUS_LABEL, partySize, passengerIssue, progressOf, type Passenger, type Trip } from "@/lib/trips";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -166,7 +166,7 @@ export function TripView({ id }: { id: string }) {
           {error ? <p className="rounded-xl bg-[#c2410c]/10 px-3 py-2 text-sm text-[#c2410c] dark:text-[#ff8f66]">{error}</p> : null}
 
           {trip.status !== "cancelled" ? <PushPrompt /> : null}
-          {trip.status !== "cancelled" ? <PaySection trip={trip} call={call} pay={pay} /> : null}
+          {PAYMENTS_ENABLED && trip.status !== "cancelled" ? <PaySection trip={trip} call={call} pay={pay} /> : null}
           <Chat trip={trip} call={call} />
           {trip.status !== "cancelled" && trip.status !== "waitlist" ? (
             <>

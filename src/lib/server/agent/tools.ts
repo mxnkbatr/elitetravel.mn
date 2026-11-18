@@ -130,6 +130,8 @@ const tourFields = z.object({
     .object({
       enabled: z.boolean().optional(),
       childDiscount: z.number().int().min(0).max(500_000_000).optional(),
+      childBasePrice: z.number().int().min(0).max(500_000_000).optional(),
+      childSalePrice: z.number().int().min(0).max(500_000_000).optional(),
       singleSupplement: z.number().int().min(0).max(500_000_000).optional(),
       allowChildExtraBed: z.boolean().optional(),
       depositPercent: z.number().int().min(0).max(100).optional(),

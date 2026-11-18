@@ -11,7 +11,7 @@ import { recheckPendingQpay } from "@/lib/server/payments";
 import { promoteWaitlist } from "@/lib/server/seats";
 import { checklistReminder } from "@/lib/server/trip-assistant";
 import { BOOKING_COLUMNS, db, postMessage, type BookingRow } from "@/lib/server/trips";
-import type { TripStatus } from "@/lib/trips";
+import { PAYMENTS_ENABLED, type TripStatus } from "@/lib/trips";
 import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
     const title = tour?.title ?? "аялал";
     const due = Number(b.total) - Number(b.paid_amount);
 
-    if (days >= 0 && days <= 14 && due > 0) {
+    if (PAYMENTS_ENABLED && days >= 0 && days <= 14 && due > 0) {
       await send(
         b.id,
         days <= 5 ? "balance-5d" : "balance-14d",
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
     .lt("created_at", dayAgo)
     .gt("created_at", weekAgo)
     .limit(2000);
-  for (const b of unpaid ?? []) {
+  for (const b of PAYMENTS_ENABLED ? (unpaid ?? []) : []) {
     const days = daysUntil(b.travel_date ?? undefined);
     if (days != null && days < 1) continue;
     const tour = tours.get(b.tour_id);

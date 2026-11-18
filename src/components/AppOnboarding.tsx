@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { cldImage } from "@/lib/cloudinary";
 import { haptic } from "@/lib/native";
 import { enablePush, pushState, type PushState } from "@/lib/push-client";
+import { PAYMENTS_ENABLED } from "@/lib/trips";
 import { useClientValue } from "@/lib/ui";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import Image from "next/image";
@@ -24,8 +25,10 @@ const slides = [
     key: "book",
     photo: "elitetravel/tours/atlantis-waterpark",
     eyebrow: "Захиалга",
-    title: "Захиалга, төлбөр нэг дор",
-    text: "Хэдхэн товшилтоор захиалж, QPay эсвэл Pocket, Toki, Simple, Dari-аар хуваан төлнө. И-баримт автоматаар.",
+    title: PAYMENTS_ENABLED ? "Захиалга, төлбөр нэг дор" : "Захиалга нэг дор",
+    text: PAYMENTS_ENABLED
+      ? "Хэдхэн товшилтоор захиалж, QPay эсвэл Pocket, Toki, Simple, Dari-аар хуваан төлнө. И-баримт автоматаар."
+      : "Хэдхэн товшилтоор захиалж, явцаа, багтайгаа чатаа нэг дороос хянана.",
   },
   {
     key: "docs",

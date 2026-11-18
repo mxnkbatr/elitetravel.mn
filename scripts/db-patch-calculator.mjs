@@ -31,7 +31,14 @@ const KNOWN = {
   "hainan-2": { childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
   "hainan-3": { childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
   "hainan-4": { childDiscount: 300_000, singleSupplement: 700_000, allowChildExtraBed: true, depositPercent: 30 },
-  bali: { childDiscount: 0, singleSupplement: 1_100_000, allowChildExtraBed: true, depositPercent: 50 },
+  bali: {
+    childDiscount: 0,
+    childBasePrice: 5_990_000,
+    childSalePrice: 5_490_000,
+    singleSupplement: 1_100_000,
+    allowChildExtraBed: true,
+    depositPercent: 50,
+  },
 };
 
 function settingsFor(tour) {

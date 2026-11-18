@@ -15,7 +15,7 @@ import { quote } from "@/lib/pricing";
 import { calculatorPayload, type CalculatorState } from "@/lib/tour-calculator";
 import { track, trackOnce } from "@/lib/track";
 import { addBooking, type BookingRequest } from "@/lib/traveller-store";
-import { INSTALLMENT_PROVIDERS } from "@/lib/trips";
+import { INSTALLMENT_PROVIDERS, PAYMENTS_ENABLED } from "@/lib/trips";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
@@ -153,7 +153,7 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
   const [date, setDate] = useState(dateOptions.find((d) => !seats[d]?.closed) ?? dateOptions[0] ?? "");
   const [waitlisted, setWaitlisted] = useState(false);
 
-  const [calcState, setCalcState] = useState<CalculatorState>(() => initialCalculatorState(2, tour.calculator?.allowChildExtraBed !== false));
+  const [calcState, setCalcState] = useState<CalculatorState>(() => initialCalculatorState(2));
   const { quote: calcQuote, rates } = useTourCalculator(tour, calcState, date);
 
   const party = useCalc
@@ -216,9 +216,21 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...request, website }),
+        body: JSON.stringify({ ...request, expectedTotal: total, website }),
       });
-      const data = (await res.json().catch(() => ({}))) as { id?: string; total?: number; deposit?: number; token?: string; status?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        id?: string;
+        total?: number;
+        deposit?: number;
+        token?: string;
+        status?: string;
+        error?: string;
+      };
+      if (res.status === 409) {
+        setError(data.error ?? "Үнэ шинэчлэгдсэн байна. Шинэ дүнгээ шалгана уу.");
+        track("booking_error", { tour: tour.id });
+        return;
+      }
       if (res.status === 400) {
         setError(data.error ?? "Мэдээллээ шалгана уу.");
         track("booking_error", { tour: tour.id });
@@ -528,13 +540,16 @@ export function BookingPlanner({ tour, variant = "card" }: { tour: Tour; variant
               ) : null}
             </AnimatePresence>
             <p className="mt-3 text-center text-[0.7rem] leading-relaxed text-muted">
-              Урьдчилсан тооцоо. Эцсийн дүнг манай баг баталгаажуулна. Pocket, Toki, Simple, Dari-аар хуваан төлөх боломжтой.
+              Урьдчилсан тооцоо. Эцсийн дүнг манай баг баталгаажуулна.
+              {PAYMENTS_ENABLED ? " Pocket, Toki, Simple, Dari-аар хуваан төлөх боломжтой." : " Төлбөрийн мэдээллийг манай баг тантай холбогдож өгнө."}
             </p>
-            <div className="mt-2 flex justify-center gap-1.5" aria-hidden>
-              {INSTALLMENT_PROVIDERS.map((prov) => (
-                <PartnerLogo key={prov.id} id={prov.id} size={24} />
-              ))}
-            </div>
+            {PAYMENTS_ENABLED ? (
+              <div className="mt-2 flex justify-center gap-1.5" aria-hidden>
+                {INSTALLMENT_PROVIDERS.map((prov) => (
+                  <PartnerLogo key={prov.id} id={prov.id} size={24} />
+                ))}
+              </div>
+            ) : null}
           </motion.form>
         )}
       </AnimatePresence>

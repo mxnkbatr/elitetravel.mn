@@ -2,18 +2,23 @@ import { formatPrice, type TourCalculatorConfig, type TourSummary } from "@/data
 
 export type { TourCalculatorConfig };
 
-export type RoomType = "double" | "twin" | "single" | "shared";
-export type ChildBed = "withParents" | "extraBed";
+export type PairChoice = "double" | "twin" | "twoSingles";
+export type OddChoice = "single" | "shared" | "withChild";
+
+export type RoomKids = {
+  extraBed: boolean;
+  withParents: number;
+};
 
 export type CalculatorState = {
   adults: number;
   children: number;
-  rooms: { type: RoomType | null }[];
-  /** One entry per child; `room` is an index into `rooms`, null = not placed yet. */
-  kids: { room: number | null; bed: ChildBed }[];
+  pairRooms: { choice: PairChoice | null; kids: RoomKids }[];
+  oddRoom: { choice: OddChoice | null; kids: RoomKids } | null;
+  expandedPairs: boolean[];
 };
 
-/** The live prices the page shows for the chosen departure (see `priceForDate`). */
+/** Live adult price for the chosen departure (same number the page shows). */
 export type Rates = {
   price: number | null;
   oldPrice: number | null;
@@ -25,280 +30,462 @@ export type Rates = {
 export type ResolvedCalculator = {
   enabled: boolean;
   childDiscount: number;
+  childBasePrice: number | null;
+  childSalePrice: number | null;
   singleSupplement: number;
   allowChildExtraBed: boolean;
   depositPercent: number;
 };
 
 export type CalculatorQuote = {
+  /** Booking may continue: every visible room chosen and totalRemaining === 0 (incl. 1 adult). */
   ready: boolean;
-  warnings: string[];
-  remaining: number;
+  /** Summary table — requires pairCount > 0 (never for 1 adult). */
+  summaryReady: boolean;
+  totalRemaining: number;
+  remainingAdults: number;
+  remainingChildren: number;
+  remainingLabel: string;
   adultPrice: number;
-  /** Pre-sale adult price while the sale runs, else null */
   originalPrice: number | null;
   childPrice: number;
-  extraBedKids: number;
-  noBedKids: number;
-  singleRooms: number;
-  singleFee: number;
+  childWithBed: number;
+  childNoBed: number;
+  oddFee: number;
+  pairSinglesFee: number;
+  twoSinglesCount: number;
   total: number;
   deposit: number;
   balance: number;
-  saleSavings: number;
-  childSavings: number;
   savings: number;
+  perChildDiscount: number;
   lines: { label: string; amount: number }[];
-  /** Mapped onto the legacy booking columns. */
   party: { adults: number; kidsOwnBed: number; kidsSharedBed: number; singleRooms: number };
+  roommatePending: boolean;
 };
 
-export const MAX_ADULTS = 20;
-export const MAX_CHILDREN = 20;
-export const MAX_WITH_PARENTS = 2;
-export const MAX_EXTRA_BED = 1;
+const emptyKids = (): RoomKids => ({ extraBed: false, withParents: 0 });
 
-export const ROOM_ADULTS: Record<RoomType, number> = { double: 2, twin: 2, single: 1, shared: 1 };
-
-/** A stranger shares the `shared` room, so children only go where their own adult sleeps. */
-export const roomTakesKids = (t: RoomType | null) => t === "double" || t === "twin" || t === "single";
-
-export function resolveCalculator(tour: Pick<TourSummary, "pricing" | "calculator">, rates?: Pick<Rates, "price" | "childSharedBed">): ResolvedCalculator {
+export function resolveCalculator(
+  tour: Pick<TourSummary, "pricing" | "calculator">,
+  rates?: Pick<Rates, "price" | "childSharedBed">,
+): ResolvedCalculator {
   const c = tour.calculator ?? {};
   const price = rates?.price ?? null;
-  const shared = rates?.childSharedBed;
+  const shared = rates?.childSharedBed ?? tour.pricing?.childSharedBed;
   return {
     enabled: c.enabled === true,
-    childDiscount: c.childDiscount ?? (price != null && shared != null ? Math.max(0, price - shared) : 0),
+    childDiscount:
+      c.childDiscount ?? (price != null && shared != null ? Math.max(0, price - shared) : 0),
+    childBasePrice: c.childBasePrice ?? null,
+    childSalePrice: c.childSalePrice ?? null,
     singleSupplement: c.singleSupplement ?? tour.pricing?.singleSupplement ?? 0,
     allowChildExtraBed: c.allowChildExtraBed ?? tour.pricing?.childOwnBed !== false,
     depositPercent: c.depositPercent ?? tour.pricing?.depositPercent ?? 0,
   };
 }
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(n)));
+export function pairCountOf(adults: number) {
+  return Math.floor(Math.max(1, adults) / 2);
+}
 
-export const suggestedRoomCount = (adults: number) => Math.ceil(adults / 2);
-export const roomCountRange = (adults: number) => ({ min: suggestedRoomCount(adults), max: adults });
+export function hasOddOf(adults: number) {
+  return Math.max(1, adults) % 2 === 1;
+}
 
-/** One room per two adults (double by default); an odd adult gets an unchosen room. */
-export function suggestRooms(adults: number, prev: CalculatorState["rooms"] = []): CalculatorState["rooms"] {
-  const pairs = Math.floor(adults / 2);
-  const rooms: CalculatorState["rooms"] = [];
-  for (let i = 0; i < pairs; i++) {
-    const t = prev[i]?.type;
-    rooms.push({ type: t === "double" || t === "twin" ? t : "double" });
-  }
-  if (adults % 2 === 1) {
-    const t = prev[pairs]?.type;
-    rooms.push({ type: t === "single" || t === "shared" ? t : null });
-  }
-  return rooms;
+export function logicalRoomsOf(adults: number) {
+  return pairCountOf(adults) + (hasOddOf(adults) ? 1 : 0);
 }
 
 /**
- * Keep every earlier placement that still fits, then put the rest with their parents first and
- * on an extra bed second. Children that fit nowhere stay unplaced (room: null).
+ * Per logical room: 1 extra-bed + 2 no-bed when allowed; Weeknd (no extra bed) → ×2.
+ * Intentional fix vs Lovable source which always used ×3 even without extra-bed UI.
  */
-export function placeKids(
-  rooms: CalculatorState["rooms"],
-  prev: CalculatorState["kids"],
-  count: number,
-  allowExtra: boolean,
-): CalculatorState["kids"] {
-  const used = rooms.map(() => ({ withParents: 0, extraBed: 0 }));
-  const fits = (room: number, bed: ChildBed) =>
-    room >= 0 &&
-    room < rooms.length &&
-    roomTakesKids(rooms[room].type) &&
-    (bed === "withParents" ? used[room].withParents < MAX_WITH_PARENTS : allowExtra && used[room].extraBed < MAX_EXTRA_BED);
-  const take = (room: number, bed: ChildBed) => {
-    used[room][bed] += 1;
-    return { room, bed };
+export function childrenMaxOf(adults: number, allowChildExtraBed = true) {
+  return logicalRoomsOf(adults) * (allowChildExtraBed ? 3 : 2);
+}
+
+export function visiblePairs(state: CalculatorState) {
+  const n = pairCountOf(state.adults);
+  return Array.from({ length: n }, (_, i) => state.pairRooms[i] ?? { choice: null as PairChoice | null, kids: emptyKids() });
+}
+
+export function initialCalculatorState(adults = 2): CalculatorState {
+  const a = Math.max(1, adults);
+  const pairs = pairCountOf(a);
+  return {
+    adults: a,
+    children: 0,
+    pairRooms: Array.from({ length: pairs }, () => ({ choice: null, kids: emptyKids() })),
+    oddRoom: null,
+    expandedPairs: Array.from({ length: pairs }, () => true),
   };
+}
 
-  const out: (CalculatorState["kids"][number] | null)[] = Array.from({ length: count }, (_, i) => {
-    const p = prev[i];
-    return p && p.room != null && fits(p.room, p.bed) ? take(p.room, p.bed) : null;
-  });
+function roomKidCount(k: RoomKids) {
+  return (k.extraBed ? 1 : 0) + k.withParents;
+}
 
-  return out.map((k, i) => {
-    if (k) return k;
-    const wanted = prev[i]?.bed ?? "withParents";
-    for (const bed of wanted === "extraBed" ? (["extraBed", "withParents"] as const) : (["withParents", "extraBed"] as const)) {
-      for (let r = 0; r < rooms.length; r++) if (fits(r, bed)) return take(r, bed);
+function clampKids(kids: RoomKids, allowExtra: boolean): RoomKids {
+  return {
+    extraBed: allowExtra && kids.extraBed,
+    withParents: Math.max(0, Math.min(2, Math.floor(kids.withParents) || 0)),
+  };
+}
+
+/** Only visible groups count — hidden odd/pair slots must not affect price or remaining. */
+function activeOdd(state: CalculatorState) {
+  return hasOddOf(state.adults) ? state.oddRoom : null;
+}
+
+function placedChildren(state: CalculatorState) {
+  let n = visiblePairs(state).reduce((s, r) => (r.choice != null ? s + roomKidCount(r.kids) : s), 0);
+  const odd = activeOdd(state);
+  if (odd?.choice != null) n += roomKidCount(odd.kids);
+  return n;
+}
+
+export function totalAllocated(state: CalculatorState) {
+  let n = visiblePairs(state).reduce((s, r) => s + (r.choice != null ? 2 + roomKidCount(r.kids) : 0), 0);
+  const odd = activeOdd(state);
+  if (odd?.choice != null) n += 1 + roomKidCount(odd.kids);
+  return n;
+}
+
+export function trimChildren(state: CalculatorState): CalculatorState {
+  let excess = placedChildren(state) - state.children;
+  if (excess <= 0) return state;
+  const next: CalculatorState = {
+    ...state,
+    pairRooms: state.pairRooms.map((r) => ({ ...r, kids: { ...r.kids } })),
+    oddRoom: state.oddRoom ? { ...state.oddRoom, kids: { ...state.oddRoom.kids } } : null,
+  };
+  const removeFrom = (kids: RoomKids) => {
+    while (excess > 0 && kids.withParents > 0) {
+      kids.withParents -= 1;
+      excess -= 1;
     }
-    return { room: null, bed: wanted };
-  });
+    if (excess > 0 && kids.extraBed) {
+      kids.extraBed = false;
+      excess -= 1;
+    }
+  };
+  if (hasOddOf(next.adults) && next.oddRoom) removeFrom(next.oddRoom.kids);
+  for (let i = Math.min(next.pairRooms.length, pairCountOf(next.adults)) - 1; i >= 0 && excess > 0; i--) {
+    removeFrom(next.pairRooms[i].kids);
+  }
+  return next;
 }
 
-export function initialCalculatorState(adults = 2, allowExtra = true): CalculatorState {
-  const a = clamp(adults, 1, MAX_ADULTS);
-  const rooms = suggestRooms(a);
-  return { adults: a, children: 0, rooms, kids: placeKids(rooms, [], 0, allowExtra) };
+export function setAdults(state: CalculatorState, adults: number, allowChildExtraBed = true): CalculatorState {
+  const a = Math.max(1, Math.floor(adults));
+  const pairs = pairCountOf(a);
+  const pairRooms = state.pairRooms.slice(0, pairs).map((r) => ({ ...r, kids: { ...r.kids } }));
+  while (pairRooms.length < pairs) pairRooms.push({ choice: null, kids: emptyKids() });
+  let expandedPairs = state.expandedPairs.slice(0, pairs);
+  while (expandedPairs.length < pairs) expandedPairs.push(true);
+  const oddRoom = hasOddOf(a) ? state.oddRoom : null;
+  const children = Math.min(state.children, childrenMaxOf(a, allowChildExtraBed));
+  return trimChildren({ adults: a, children, pairRooms, oddRoom, expandedPairs });
 }
 
-/** Changing the party re-suggests rooms and child placement. */
-export function setAdults(state: CalculatorState, adults: number, allowExtra: boolean): CalculatorState {
-  const a = clamp(adults, 1, MAX_ADULTS);
-  const rooms = suggestRooms(a, state.rooms);
-  return { ...state, adults: a, rooms, kids: placeKids(rooms, state.kids, state.children, allowExtra) };
+export function setChildren(state: CalculatorState, children: number, allowChildExtraBed = true): CalculatorState {
+  const c = Math.max(0, Math.min(childrenMaxOf(state.adults, allowChildExtraBed), Math.floor(children)));
+  return trimChildren({ ...state, children: c });
 }
 
-export function setChildren(state: CalculatorState, children: number, allowExtra: boolean): CalculatorState {
-  const c = clamp(children, 0, MAX_CHILDREN);
-  return { ...state, children: c, kids: placeKids(state.rooms, state.kids, c, allowExtra) };
+export function setOddChoice(state: CalculatorState, choice: OddChoice): CalculatorState {
+  if (!hasOddOf(state.adults)) return state;
+  const odd = state.oddRoom ?? { choice: null, kids: emptyKids() };
+  if (odd.choice === choice) return { ...state, oddRoom: null };
+  return { ...state, oddRoom: { choice, kids: odd.choice == null ? emptyKids() : { ...odd.kids } } };
 }
 
-export function setRoomCount(state: CalculatorState, count: number, allowExtra: boolean): CalculatorState {
-  const { min, max } = roomCountRange(state.adults);
-  const n = clamp(count, min, max);
-  if (n === state.rooms.length) return state;
-  const rooms =
-    n === suggestedRoomCount(state.adults)
-      ? suggestRooms(state.adults, state.rooms)
-      : Array.from({ length: n }, (_, i) => state.rooms[i] ?? { type: null });
-  return { ...state, rooms, kids: placeKids(rooms, state.kids, state.children, allowExtra) };
+export function setPairChoice(state: CalculatorState, index: number, choice: PairChoice): CalculatorState {
+  const pairRooms = [...state.pairRooms];
+  while (pairRooms.length <= index) pairRooms.push({ choice: null, kids: emptyKids() });
+  const cur = pairRooms[index];
+  pairRooms[index] = cur.choice === choice ? { choice: null, kids: emptyKids() } : { ...cur, choice };
+  return { ...state, pairRooms };
 }
 
-export function setRoomType(state: CalculatorState, index: number, type: RoomType, allowExtra: boolean): CalculatorState {
-  const rooms = state.rooms.map((r, i) => (i === index ? { type } : r));
-  return { ...state, rooms, kids: placeKids(rooms, state.kids, state.children, allowExtra) };
+export function setPairKids(
+  state: CalculatorState,
+  index: number,
+  kids: RoomKids,
+  allowChildExtraBed = true,
+): CalculatorState {
+  const pairRooms = [...state.pairRooms];
+  while (pairRooms.length <= index) pairRooms.push({ choice: null, kids: emptyKids() });
+  pairRooms[index] = { ...pairRooms[index], kids: clampKids(kids, allowChildExtraBed) };
+  return trimChildren({ ...state, pairRooms });
 }
 
-/** Adults the other rooms already hold — used to grey out room types that would overfill. */
-export function otherRoomsAdults(state: CalculatorState, index: number) {
-  return state.rooms.reduce((s, r, i) => (i === index || !r.type ? s : s + ROOM_ADULTS[r.type]), 0);
+export function setOddKids(state: CalculatorState, kids: RoomKids, allowChildExtraBed = true): CalculatorState {
+  if (!hasOddOf(state.adults) || !state.oddRoom?.choice) return state;
+  return trimChildren({ ...state, oddRoom: { ...state.oddRoom, kids: clampKids(kids, allowChildExtraBed) } });
 }
 
-function roomUse(state: CalculatorState, room: number, skipKid: number) {
-  let withParents = 0;
-  let extraBed = 0;
-  state.kids.forEach((k, i) => {
-    if (i === skipKid || k.room !== room) return;
-    if (k.bed === "withParents") withParents += 1;
-    else extraBed += 1;
-  });
-  return { withParents, extraBed };
+export function togglePairExpanded(state: CalculatorState, index: number): CalculatorState {
+  const expandedPairs = [...state.expandedPairs];
+  while (expandedPairs.length <= index) expandedPairs.push(true);
+  expandedPairs[index] = !(expandedPairs[index] ?? true);
+  return { ...state, expandedPairs };
 }
 
-/** Whether child `kid` may move to `room` with `bed` without breaking a room limit. */
-export function kidFits(state: CalculatorState, kid: number, room: number, bed: ChildBed, allowExtra: boolean) {
-  if (!roomTakesKids(state.rooms[room]?.type ?? null)) return false;
-  const use = roomUse(state, room, kid);
-  return bed === "withParents" ? use.withParents < MAX_WITH_PARENTS : allowExtra && use.extraBed < MAX_EXTRA_BED;
+export function assignedChildrenCount(state: CalculatorState) {
+  return placedChildren(state);
 }
 
-export function setKid(state: CalculatorState, kid: number, room: number, bed: ChildBed, allowExtra: boolean): CalculatorState {
-  if (!kidFits(state, kid, room, bed, allowExtra)) return state;
-  return { ...state, kids: state.kids.map((k, i) => (i === kid ? { room, bed } : k)) };
+export function canAddMoreChildren(state: CalculatorState) {
+  return assignedChildrenCount(state) < state.children;
 }
 
-const ROOM_NAMES: Record<RoomType, string> = {
-  double: "Хосын том ортой өрөө",
-  twin: "Найзуудын тусдаа 2 ортой өрөө",
-  single: "Ганцаараа",
-  shared: "Ижил хүйсийн аялагчтай хуваалцах",
-};
-export const roomName = (t: RoomType) => ROOM_NAMES[t];
+function remainingLabelMn(a: number, c: number) {
+  const parts: string[] = [];
+  if (a === 1) parts.push("1 том хүн");
+  else if (a > 1) parts.push(`${a} том хүн`);
+  if (c === 1) parts.push("1 хүүхэд");
+  else if (c > 1) parts.push(`${c} хүүхэд`);
+  return parts.length ? `${parts.join(" ")} үлдсэн` : "";
+}
 
-export function calculateTourPrice(tour: Pick<TourSummary, "pricing" | "calculator">, state: CalculatorState, rates: Rates): CalculatorQuote {
+export function childUnitPrice(
+  settings: ResolvedCalculator,
+  adultPrice: number,
+  adults: number,
+  childrenInput: number,
+  saleActive: boolean,
+) {
+  let price: number;
+  if (settings.childBasePrice != null) {
+    price = saleActive && settings.childSalePrice != null ? settings.childSalePrice : settings.childBasePrice;
+  } else {
+    price = Math.max(0, adultPrice - settings.childDiscount);
+  }
+  if (adults === 1 && childrenInput === 1) price = adultPrice;
+  return price;
+}
+
+/**
+ * TOTAL = (A + B) × P + N × C + oddSingleFee + twoSinglesFee
+ * Adults always priced; only allocated children in visible groups contribute.
+ */
+export function calculateTourPrice(
+  tour: Pick<TourSummary, "pricing" | "calculator">,
+  state: CalculatorState,
+  rates: Rates,
+): CalculatorQuote {
   const settings = resolveCalculator(tour, rates);
   const adultPrice = rates.price ?? 0;
   const originalPrice = rates.saleActive && rates.oldPrice != null && rates.oldPrice > adultPrice ? rates.oldPrice : null;
+  const childPrice = childUnitPrice(settings, adultPrice, state.adults, state.children, rates.saleActive);
 
-  const capacity = state.rooms.reduce((s, r) => s + (r.type ? ROOM_ADULTS[r.type] : 0), 0);
-  const unchosen = state.rooms.filter((r) => !r.type).length;
-  const placed = state.kids.filter((k) => k.room != null);
-  const extraBedKids = placed.filter((k) => k.bed === "extraBed").length;
-  const noBedKids = placed.length - extraBedKids;
-  const remainingAdults = Math.max(0, state.adults - capacity);
-  const spareSeats = Math.max(0, capacity - state.adults);
-  const remainingKids = state.children - placed.length;
+  const pairs = visiblePairs(state);
+  const pairCount = pairs.length;
+  const hasOdd = hasOddOf(state.adults);
+  const odd = activeOdd(state);
 
-  const warnings: string[] = [];
-  if (unchosen) warnings.push(`${unchosen} өрөөний төрлийг сонгоогүй байна.`);
-  if (remainingAdults) warnings.push(`${remainingAdults} том хүн өрөөнд хуваарилагдаагүй байна.`);
-  if (spareSeats) warnings.push(`Өрөөнд ${spareSeats} том хүний сул байр байна — өрөөний төрөл эсвэл тоогоо өөрчилнө үү.`);
-  if (remainingKids) warnings.push(`${remainingKids} хүүхэд өрөөнд хуваарилагдаагүй байна — өрөө нэмэх эсвэл нэмэлт ор сонгоно уу.`);
-  const ready = warnings.length === 0;
+  let childWithBed = 0;
+  let childNoBed = 0;
+  for (const r of pairs) {
+    if (r.choice == null) continue;
+    if (r.kids.extraBed) childWithBed += 1;
+    childNoBed += r.kids.withParents;
+  }
+  if (odd?.choice != null) {
+    if (odd.kids.extraBed) childWithBed += 1;
+    childNoBed += odd.kids.withParents;
+  }
 
-  const childPrice = state.adults === 1 && state.children === 1 ? adultPrice : Math.max(0, adultPrice - settings.childDiscount);
-  const singleRooms = state.rooms.filter((r) => r.type === "single").length;
-  const singleFee = singleRooms * settings.singleSupplement;
+  const allocated = totalAllocated(state);
+  const remaining = Math.max(0, state.adults + state.children - allocated);
+  const assignedBaseSlots = pairs.filter((r) => r.choice != null).length * 2 + (odd?.choice != null ? 1 : 0);
+  const assignedAdults = Math.min(state.adults, assignedBaseSlots);
+  const remainingAdults = Math.max(0, state.adults - assignedAdults);
+  const remainingChildren = Math.max(0, state.children - (allocated - assignedAdults));
 
-  const lines: CalculatorQuote["lines"] = [{ label: `${state.adults} том хүн × ${formatPrice(adultPrice)}`, amount: state.adults * adultPrice }];
-  if (extraBedKids) lines.push({ label: `${extraBedKids} хүүхэд, нэмэлт ортой × ${formatPrice(adultPrice)}`, amount: extraBedKids * adultPrice });
-  if (noBedKids) lines.push({ label: `${noBedKids} хүүхэд, эцэг эхтэй хамт × ${formatPrice(childPrice)}`, amount: noBedKids * childPrice });
-  if (singleFee) lines.push({ label: `Ганц өрөөний нэмэлт × ${singleRooms}`, amount: singleFee });
+  const twoSinglesCount = pairs.filter((r) => r.choice === "twoSingles").length;
+  const pairSinglesFee = twoSinglesCount * 2 * settings.singleSupplement;
+  const oddFee = hasOdd && odd?.choice === "single" ? settings.singleSupplement : 0;
 
-  const total = lines.reduce((s, l) => s + l.amount, 0);
+  const total = (state.adults + childWithBed) * adultPrice + childNoBed * childPrice + oddFee + pairSinglesFee;
   const deposit = settings.depositPercent > 0 ? Math.round((total * settings.depositPercent) / 100) : 0;
-  const saleSavings = originalPrice != null ? (originalPrice - adultPrice) * (state.adults + extraBedKids + noBedKids) : 0;
-  const childSavings = noBedKids * (adultPrice - childPrice);
+
+  // Intentional fix vs Lovable: always real savings N × max(0, P − C)
+  const perChildDiscount = Math.max(0, adultPrice - childPrice);
+  const savings = childNoBed * perChildDiscount;
+
+  const roomsSelected = pairs.every((r) => r.choice != null) && (!hasOdd || odd?.choice != null);
+  const ready = roomsSelected && remaining === 0;
+  const summaryReady = pairCount > 0 && ready;
+
+  const lines: CalculatorQuote["lines"] = [];
+  if (state.adults) lines.push({ label: `${state.adults} том хүн × ${formatPrice(adultPrice)}`, amount: state.adults * adultPrice });
+  if (childWithBed) lines.push({ label: `${childWithBed} хүүхэд /нэмэлт ортой/ × ${formatPrice(adultPrice)}`, amount: childWithBed * adultPrice });
+  if (childNoBed) lines.push({ label: `${childNoBed} хүүхэд /нэмэлт оргүй/ × ${formatPrice(childPrice)}`, amount: childNoBed * childPrice });
+  if (pairSinglesFee) lines.push({ label: `Тус тусдаа ганц өрөө × ${twoSinglesCount}`, amount: pairSinglesFee });
+  if (oddFee) lines.push({ label: "Ганц өрөөний нэмэгдэл", amount: oddFee });
+
+  const singleRooms = twoSinglesCount * 2 + (hasOdd && odd?.choice === "single" ? 1 : 0);
 
   return {
     ready,
-    warnings,
-    remaining: remainingAdults + remainingKids,
+    summaryReady,
+    totalRemaining: remaining,
+    remainingAdults,
+    remainingChildren,
+    remainingLabel: remainingLabelMn(remainingAdults, remainingChildren),
     adultPrice,
     originalPrice,
     childPrice,
-    extraBedKids,
-    noBedKids,
-    singleRooms,
-    singleFee,
+    childWithBed,
+    childNoBed,
+    oddFee,
+    pairSinglesFee,
+    twoSinglesCount,
     total,
     deposit,
     balance: total - deposit,
-    saleSavings,
-    childSavings,
-    savings: saleSavings + childSavings,
+    savings,
+    perChildDiscount,
     lines,
-    party: { adults: state.adults, kidsOwnBed: extraBedKids, kidsSharedBed: noBedKids, singleRooms },
+    party: { adults: state.adults, kidsOwnBed: childWithBed, kidsSharedBed: childNoBed, singleRooms },
+    roommatePending: hasOdd && odd?.choice === "shared",
   };
 }
 
+/** Schema + allocation rules for booking/API. Returns Mongolian error or null. */
+export function validateCalculatorState(
+  state: CalculatorState,
+  allowChildExtraBed: boolean,
+): string | null {
+  if (!Number.isInteger(state.adults) || state.adults < 1) return "Том хүний тоо буруу байна.";
+  if (!Number.isInteger(state.children) || state.children < 0) return "Хүүхдийн тоо буруу байна.";
+  if (state.children > childrenMaxOf(state.adults, allowChildExtraBed)) return "Хүүхдийн тоо хэтэрсэн байна.";
+
+  const pairs = visiblePairs(state);
+  for (const r of pairs) {
+    if (r.kids.withParents > 2) return "Нэг өрөөнд хамт унтах хүүхэд 2-оос илүү байж болохгүй.";
+    if (r.kids.extraBed && !allowChildExtraBed) return "Энэ аялалд нэмэлт ортой хүүхэд сонгох боломжгүй.";
+    if (r.kids.extraBed && roomKidCount(r.kids) > 3) return "Нэг өрөөний хүүхдийн хязгаар хэтэрсэн.";
+  }
+  const odd = activeOdd(state);
+  if (odd) {
+    if (odd.kids.withParents > 2) return "Нэг өрөөнд хамт унтах хүүхэд 2-оос илүү байж болохгүй.";
+    if (odd.kids.extraBed && !allowChildExtraBed) return "Энэ аялалд нэмэлт ортой хүүхэд сонгох боломжгүй.";
+  }
+  if (placedChildren(state) > state.children) return "Хуваарилсан хүүхэд нийт тооноос илүү байна.";
+  return null;
+}
+
 export function calculatorPayload(state: CalculatorState, quote: CalculatorQuote) {
+  const pairs = visiblePairs(state);
+  const odd = activeOdd(state);
   return {
     adults: state.adults,
     children: state.children,
-    rooms: state.rooms.map((r) => r.type),
-    kids: state.kids.map((k) => ({ room: k.room, bed: k.bed })),
-    extraBedKids: quote.extraBedKids,
-    noBedKids: quote.noBedKids,
-    singleRooms: quote.singleRooms,
+    pairRooms: pairs.map((r) => ({ choice: r.choice, extraBed: r.kids.extraBed, withParents: r.kids.withParents })),
+    oddRoom: odd
+      ? { choice: odd.choice, extraBed: odd.kids.extraBed, withParents: odd.kids.withParents }
+      : null,
+    roomGroups: [
+      ...pairs.map((r, i) => ({
+        groupId: `pair-${i + 1}`,
+        baseAdults: 2,
+        type: r.choice,
+        physicalRooms: r.choice === "twoSingles" ? 2 : 1,
+        extraBedChildren: r.choice && r.kids.extraBed ? 1 : 0,
+        noBedChildren: r.choice ? r.kids.withParents : 0,
+      })),
+      ...(odd
+        ? [
+            {
+              groupId: "odd-1",
+              baseAdults: 1,
+              type: odd.choice,
+              physicalRooms: 1,
+              extraBedChildren: odd.choice && odd.kids.extraBed ? 1 : 0,
+              noBedChildren: odd.choice ? odd.kids.withParents : 0,
+              roommateStatus: odd.choice === "shared" ? "pending_match" : null,
+            },
+          ]
+        : []),
+    ],
+    childWithBed: quote.childWithBed,
+    childNoBed: quote.childNoBed,
+    singleRooms: quote.party.singleRooms,
+    roommatePending: quote.roommatePending,
+    pricingSnapshot: {
+      adultPrice: quote.adultPrice,
+      childPrice: quote.childPrice,
+      lines: quote.lines,
+      total: quote.total,
+      deposit: quote.deposit,
+      balance: quote.balance,
+      savings: quote.savings,
+      quotedAt: new Date().toISOString(),
+    },
     total: quote.total,
     deposit: quote.deposit,
     savings: quote.savings,
   };
 }
 
-const ROOM_TYPES = new Set<RoomType>(["double", "twin", "single", "shared"]);
-
-/** Server-side: rebuild a valid state from the browser payload (limits re-applied). */
-export function parseCalculatorState(raw: unknown, allowExtra: boolean): CalculatorState | null {
+export function parseCalculatorState(raw: unknown, allowChildExtraBed = true): CalculatorState | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const adults = o.adults;
-  const children = o.children ?? 0;
-  if (!Number.isInteger(adults) || (adults as number) < 1 || (adults as number) > MAX_ADULTS) return null;
-  if (!Number.isInteger(children) || (children as number) < 0 || (children as number) > MAX_CHILDREN) return null;
-  const a = adults as number;
-  const c = children as number;
+  if (!Number.isInteger(o.adults) || (o.adults as number) < 1) return null;
+  const adults = o.adults as number;
+  const maxKids = childrenMaxOf(adults, allowChildExtraBed);
+  const children = Number.isInteger(o.children) ? Math.max(0, Math.min(maxKids, o.children as number)) : 0;
+  const base = initialCalculatorState(adults);
+  base.children = children;
 
-  const rawRooms = Array.isArray(o.rooms) ? o.rooms : [];
-  const { min, max } = roomCountRange(a);
-  if (rawRooms.length < min || rawRooms.length > max) return null;
-  const rooms = rawRooms.map((t) => ({ type: typeof t === "string" && ROOM_TYPES.has(t as RoomType) ? (t as RoomType) : null }));
-
-  const rawKids = Array.isArray(o.kids) ? o.kids : [];
-  const prev = rawKids.slice(0, c).map((k) => {
-    const row = (k ?? {}) as Record<string, unknown>;
-    return {
-      room: Number.isInteger(row.room) ? (row.room as number) : null,
-      bed: row.bed === "extraBed" ? ("extraBed" as const) : ("withParents" as const),
-    };
+  const pairs = Array.isArray(o.pairRooms) ? o.pairRooms : [];
+  base.pairRooms = Array.from({ length: pairCountOf(adults) }, (_, i) => {
+    const row = (pairs[i] ?? {}) as Record<string, unknown>;
+    const choice = row.choice === "twin" || row.choice === "twoSingles" || row.choice === "double" ? row.choice : null;
+    const kids = clampKids(
+      {
+        extraBed: row.extraBed === true,
+        withParents: Math.max(0, Math.min(2, Number(row.withParents ?? 0) || 0)),
+      },
+      allowChildExtraBed,
+    );
+    return { choice, kids };
   });
-  return { adults: a, children: c, rooms, kids: placeKids(rooms, prev, c, allowExtra) };
+
+  if (hasOddOf(adults)) {
+    const odd = (o.oddRoom ?? null) as Record<string, unknown> | null;
+    if (odd) {
+      const choice = odd.choice === "single" || odd.choice === "shared" || odd.choice === "withChild" ? odd.choice : null;
+      base.oddRoom = {
+        choice,
+        kids: clampKids(
+          {
+            extraBed: odd.extraBed === true,
+            withParents: Math.max(0, Math.min(2, Number(odd.withParents ?? 0) || 0)),
+          },
+          allowChildExtraBed,
+        ),
+      };
+    }
+  } else {
+    base.oddRoom = null;
+  }
+
+  return trimChildren(base);
 }
+
+export const PAIR_LABEL: Record<PairChoice, string> = {
+  double: "Хосын том ортой өрөө",
+  twin: "Тусдаа 2 ортой өрөө",
+  twoSingles: "Тус тусдаа ганц ганц өрөө",
+};
+
+export const ODD_LABEL: Record<OddChoice, string> = {
+  shared: "Ижил хүйсийн өөр аялагчтай өрөө хуваалцах",
+  withChild: "Хүүхэдтэй хамт нэг өрөөнд байрлах",
+  single: "Өрөөнд ганцаараа байрлах",
+};

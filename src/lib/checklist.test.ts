@@ -51,6 +51,7 @@ describe("tripChecklist", () => {
         contract: { state: "unsigned", body: "..." },
       }),
       now,
+      true,
     );
     const open = Object.fromEntries(items.filter((i) => !i.done).map((i) => [i.key, i]));
     expect(Object.keys(open)).toEqual(["payment", "passengers", "documents", "care", "contract"]);
@@ -71,6 +72,7 @@ describe("tripChecklist", () => {
         care: { emergencyName: "Дорж", emergencyPhone: "99887766" },
       }),
       now,
+      true,
     );
     expect(items.every((i) => i.done)).toBe(true);
     expect(items.map((i) => i.key)).toEqual(["payment", "passengers", "care"]);
@@ -78,7 +80,7 @@ describe("tripChecklist", () => {
   });
 
   it("asks for the deposit first and counts missing travellers", () => {
-    const items = tripChecklist(trip({ status: "new", paidAmount: 0, adults: 1, kidsOwnBed: 1 }), now);
+    const items = tripChecklist(trip({ status: "new", paidAmount: 0, adults: 1, kidsOwnBed: 1 }), now, true);
     expect(items[0].label).toBe("Урьдчилгаа ₮3'000'000 төлөх");
     expect(items[1].details).toEqual(["Зорчигч 1: Мэдээлэл оруулаагүй", "Зорчигч 2: Мэдээлэл оруулаагүй"]);
   });
@@ -89,7 +91,7 @@ describe("tripChecklist", () => {
   });
 
   it("writes open items as a chat list with the section to open", () => {
-    const text = checklistText(tripChecklist(trip({ passengers: [ready, ready], care: null }), now));
+    const text = checklistText(tripChecklist(trip({ passengers: [ready, ready], care: null }), now, true));
     expect(text).toBe("• Төлбөр ₮7'000'000 төлөх («Төлбөр» хэсэг)\n• Яаралтай үед холбогдох хүн, хоол, эрүүл мэндийн мэдээлэл бөглөх («Нэмэлт мэдээлэл» хэсэг)");
   });
 });

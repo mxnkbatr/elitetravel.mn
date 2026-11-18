@@ -32,6 +32,12 @@ export type TripMessage = { id: number; at: string; sender: "traveller" | "staff
 
 export type PayOption = { kind: "deposit" | "balance" | "full"; label: string; amount: number };
 
+/**
+ * Online payment (QPay, pay-later partners) is hidden from travellers while false: no «Төлбөр»
+ * section, no pay reminders, and messages say the team will send payment details instead.
+ */
+export const PAYMENTS_ENABLED = false;
+
 /** Logos are the partners' App Store icons (public/partners). */
 export const INSTALLMENT_PROVIDERS = [
   { id: "pocket", name: "Pocket", color: "#e8375a", logo: "/partners/pocket.png" },

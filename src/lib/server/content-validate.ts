@@ -118,6 +118,8 @@ function parseCalculator(raw: unknown): TourCalculatorConfig | undefined {
   const out: TourCalculatorConfig = {
     enabled: c.enabled === true ? true : c.enabled === false ? false : undefined,
     childDiscount: num(c.childDiscount, "Тооцоолол · хүүхдийн хөнгөлөлт") ?? undefined,
+    childBasePrice: num(c.childBasePrice, "Тооцоолол · хүүхдийн үндсэн үнэ") ?? undefined,
+    childSalePrice: num(c.childSalePrice, "Тооцоолол · хүүхдийн хямдралтай үнэ") ?? undefined,
     singleSupplement: num(c.singleSupplement, "Тооцоолол · ганц өрөө") ?? undefined,
     allowChildExtraBed: typeof c.allowChildExtraBed === "boolean" ? c.allowChildExtraBed : undefined,
     depositPercent: num(c.depositPercent, "Тооцоолол · урьдчилгаа %") ?? undefined,
