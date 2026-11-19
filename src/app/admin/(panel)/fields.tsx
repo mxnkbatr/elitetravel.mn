@@ -8,20 +8,39 @@ import { useState, type ReactNode } from "react";
 export const inputClass =
   "w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15";
 
-export function Field({ label, hint, children, wide }: { label: string; hint?: string; children: ReactNode; wide?: boolean }) {
+export function Field({
+  label,
+  hint,
+  children,
+  wide,
+  error,
+  required,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+  wide?: boolean;
+  /** Red message under the input (and a red outline around it) */
+  error?: string;
+  required?: boolean;
+}) {
   return (
-    <label className={`block ${wide ? "sm:col-span-2" : ""}`}>
-      <span className="mb-1.5 block text-[0.8rem] font-semibold text-ink">{label}</span>
+    <label className={`block ${wide ? "sm:col-span-2" : ""} ${error ? "[&_input]:border-red-400 [&_select]:border-red-400 [&_textarea]:border-red-400" : ""}`}>
+      <span className="mb-1.5 block text-[0.8rem] font-semibold text-ink">
+        {label}
+        {required ? <span className="ml-0.5 text-red-600" aria-hidden>*</span> : null}
+      </span>
       {children}
+      {error ? <span className="mt-1 block text-[0.75rem] font-medium leading-snug text-red-600">{error}</span> : null}
       {hint ? <span className="mt-1 block text-[0.7rem] leading-snug text-muted">{hint}</span> : null}
     </label>
   );
 }
 
 /** Native-app style block: big title, one short hint, then the fields. */
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+export function Section({ title, hint, children, id }: { title: string; hint?: string; children: ReactNode; id?: string }) {
   return (
-    <section className="overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-white shadow-[0_8px_24px_rgba(6,42,42,0.04)]">
+    <section id={id} className="scroll-mt-24 overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-white shadow-[0_8px_24px_rgba(6,42,42,0.04)]">
       <header className="border-b border-[var(--line)] bg-[#f7faf9] px-4 py-4 sm:px-6">
         <h2 className="font-display text-[1.35rem] font-semibold leading-tight tracking-[-0.02em]">{title}</h2>
         {hint ? <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p> : null}
@@ -32,13 +51,14 @@ export function Section({ title, hint, children }: { title: string; hint?: strin
 }
 
 /** One item per line ↔ string[] */
-export function LinesField({ label, value, onChange, rows = 4, hint }: { label: string; value: string[]; onChange: (v: string[]) => void; rows?: number; hint?: string }) {
+export function LinesField({ label, value, onChange, rows = 4, hint, error, placeholder }: { label: string; value: string[]; onChange: (v: string[]) => void; rows?: number; hint?: string; error?: string; placeholder?: string }) {
   const [text, setText] = useState(value.join("\n"));
   return (
-    <Field label={label} hint={hint ?? "Мөр бүрт нэг зүйл"} wide>
+    <Field label={label} hint={hint ?? "Мөр бүрт нэг зүйл"} wide error={error}>
       <textarea
         value={text}
         rows={rows}
+        placeholder={placeholder}
         onChange={(e) => {
           setText(e.target.value);
           onChange(e.target.value.split("\n").map((l) => l.trim()).filter(Boolean));
@@ -100,9 +120,9 @@ function UploadButton({ onUploaded, multiple }: { onUploaded: (urls: string[]) =
   );
 }
 
-export function ImageField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+export function ImageField({ label, value, onChange, error, hint }: { label: string; value: string; onChange: (v: string) => void; error?: string; hint?: string }) {
   return (
-    <Field label={label} wide>
+    <Field label={label} wide error={error} hint={hint} required>
       <div className="flex flex-wrap items-start gap-3">
         <div className="relative aspect-[4/3] w-36 shrink-0 overflow-hidden rounded-xl bg-[#e7eeec]">
           {value ? <Image src={value} alt="" fill sizes="144px" className="object-cover" /> : null}
@@ -127,7 +147,7 @@ export function GalleryField({ value, onChange }: { value: string[]; onChange: (
               type="button"
               aria-label="Устгах"
               onClick={() => onChange(value.filter((_, j) => j !== i))}
-              className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-xs text-white opacity-0 transition group-hover:opacity-100"
+              className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-xs text-white transition sm:opacity-0 sm:group-hover:opacity-100"
             >
               ×
             </button>

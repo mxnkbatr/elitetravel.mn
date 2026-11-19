@@ -1,10 +1,21 @@
 "use client";
 
 import { confirmAction, toast } from "@/app/admin/(panel)/feedback";
-import { deleteItem, reorder } from "@/app/admin/(panel)/actions";
+import { deleteItem, reorder, tourBookingCount } from "@/app/admin/(panel)/actions";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+
+/** Asks before deleting; for tours it first says how many live bookings still use it. */
+export async function confirmDelete(table: "tours" | "news", id: string, title: string) {
+  let body = "Сайтаас шууд алга болно. Буцаах боломжгүй.";
+  if (table === "tours") {
+    const bookings = await tourBookingCount(id).catch(() => 0);
+    if (bookings > 0)
+      body = `Энэ аялалд ${bookings} идэвхтэй захиалга бий. Устгавал аялагчид аяллын хуудсаа харж чадахгүй. Оронд нь «Дууссан» төлөвт оруулахыг зөвлөж байна. Буцаах боломжгүй.`;
+  }
+  return confirmAction({ title: `«${title || id}» устгах уу?`, body, confirm: "Тийм, устгах", danger: true });
+}
 
 export type ListItem = { id: string; title: string; sub: string; image: string; badge?: string; muted?: boolean; peopleHref?: string };
 
@@ -33,7 +44,7 @@ export function ContentList({ table, items: initial }: { table: "tours" | "news"
   }
 
   async function remove(item: ListItem) {
-    if (!(await confirmAction({ title: `«${item.title}» устгах уу?`, body: "Сайтаас шууд алга болно. Буцаах боломжгүй.", confirm: "Устгах", danger: true }))) return;
+    if (!(await confirmDelete(table, item.id, item.title))) return;
     const before = items;
     setItems(items.filter((i) => i.id !== item.id));
     start(async () => {

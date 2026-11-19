@@ -1,12 +1,13 @@
 "use server";
 
-import { formatPrice, getTour, tourDates } from "@/data/tours";
+import { formatPrice, getTour, tourDates, type Tour } from "@/data/tours";
 import { quote } from "@/lib/pricing";
 import { can, ROLES, type Role } from "@/lib/permissions";
 import { audit } from "@/lib/server/audit";
 import { requireAdmin } from "@/lib/server/auth";
 import { CONTENT_TAG, getTours } from "@/lib/server/content";
 import { invalidMessage, parseNews, parseTour } from "@/lib/server/content-validate";
+import { blockingIssues, normalizeTourForSave, validateTour } from "@/lib/tour-form";
 import { issueReceipt } from "@/lib/server/ebarimt";
 import { deletePassengers, logPassportAccess, readPassengers, savePassengers } from "@/lib/server/passports";
 import { onPaymentPaid } from "@/lib/server/payments";
@@ -383,11 +384,18 @@ async function save(table: Table, input: unknown, originalId: string | null): Pr
   const admin = await requireAdmin("content.manage");
   let item: { id: string };
   try {
-    item = table === "tours" ? parseTour(input) : parseNews(input);
+    item = table === "tours" ? parseTour(normalizeTourForSave(parseTour(input))) : parseNews(input);
   } catch (e) {
     const message = invalidMessage(e);
     if (message) return { ok: false, error: message };
     throw e;
+  }
+
+  if (table === "tours") {
+    const problems = blockingIssues(validateTour(item as Tour));
+    if (problems.length) return { ok: false, error: problems.map((p) => p.message).join("\n") };
+    // Bookings, departures and links point at the ID; renaming would orphan them
+    if (originalId !== null && originalId !== item.id) return { ok: false, error: "Хадгалсан аяллын холбоос (ID)-ыг өөрчлөх боломжгүй." };
   }
 
   const client = db();
@@ -430,6 +438,13 @@ export async function deleteItem(table: Table, id: string): Promise<SaveResult> 
   refreshSite();
   revalidatePath(`/admin/${table}`);
   return { ok: true };
+}
+
+/** Active bookings that still point at a tour — shown before staff delete it. */
+export async function tourBookingCount(id: string): Promise<number> {
+  await requireAdmin("content.manage");
+  const { count } = await db().from("booking_requests").select("id", { count: "exact", head: true }).eq("tour_id", id).neq("status", "cancelled");
+  return count ?? 0;
 }
 
 /** Saves a new display order: ids top to bottom. */
